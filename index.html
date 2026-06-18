@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Toronto Stadium 3D Sim</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
+  <style type="text/tailwindcss">
+    @theme {
+      --color-primary: #10b981;
+      --color-secondary: #ef4444;
+      --color-stadium: #1f2937;
+      --color-fan-zone: #3b82f6;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      font-family: 'Inter', sans-serif;
+      background-color: #0f172a;
+    }
+    #root {
+      width: 100vw;
+      height: 100vh;
+    }
+  </style>
+
+  <!-- Import Maps for ES Modules -->
+  <script type="importmap">
+    {
+      "imports": {
+        "react": "https://esm.sh/react@18.2.0",
+        "react/jsx-runtime": "https://esm.sh/react@18.2.0/jsx-runtime",
+        "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+        "three": "https://esm.sh/three@0.160.0",
+        "@react-three/fiber": "https://esm.sh/@react-three/fiber@8.15.12?deps=three@0.160.0,react@18.2.0,react-dom@18.2.0",
+        "@react-three/drei": "https://esm.sh/@react-three/drei@9.96.1?deps=three@0.160.0,react@18.2.0,react-dom@18.2.0,@react-three/fiber@8.15.12",
+        "lucide-react": "https://esm.sh/lucide-react@0.302.0?deps=react@18.2.0"
+      }
+    }
+  </script>
+
+  <!-- Babel Standalone for in-browser JSX compilation -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+  <div id="root"></div>
+
+  <!-- Main Application Code -->
+  <script type="text/babel" data-type="module">
+    import React, { useState, useMemo, useRef, useEffect } from 'react';
+    import { createRoot } from 'react-dom/client';
+    import { Canvas, useFrame } from '@react-three/fiber';
+    import { OrbitControls, Sky, Environment, BakeShadows, Box, Cylinder, Plane, Text } from '@react-three/drei';
+    import * as THREE from 'three';
+    import { Activity, Settings2, Train, Target } from 'lucide-react';
+
+    // ==========================================
+    // 1. DASHBOARD COMPONENT
+    // ==========================================
+    const Dashboard = ({ arrivalRate, setArrivalRate, departureRate, setDepartureRate, mitigation, setMitigation }) => {
+      return (
+        <div className="absolute top-4 left-4 z-10 w-80 bg-slate-900/90 backdrop-blur-md border border-slate-700 rounded-xl p-5 shadow-2xl flex flex-col gap-5">
+          <div>
+            <h1 className="text-xl font-bold bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent flex items-center gap-2">
+              <Activity size={24} className="text-emerald-400"/> 
+              Toronto Stadium Sim
+            </h1>
+            <p className="text-slate-400 text-sm mt-1">Fluxo Contínuo em Tempo Real</p>
+          </div>
+
+          <div className="space-y-4">
+            <h2 className="text-sm font-semibold text-slate-300 flex items-center gap-2">
+              <Settings2 size={16} /> Volume de Pessoas
+            </h2>
+            <div>
+              <div className="flex justify-between text-sm mb-1">
+                <span className="text-emerald-400">Taxa de Chegada</span>
+                <span className="text-emerald-400 font-medium">{arrivalRate}%</span>
+              </div>
+              <input 
+                type="range" min="0" max="100" step="5"
+                value={arrivalRate}
+                onChange={(e) => setArrivalRate(Number(e.target.value))}
+                className="w-full accent-emerald-500 bg-slate-800 rounded-lg appearance-none h-2 cursor-pointer"
+              />
+            </div>
+            <div>
+              <div className="flex justify-between text-sm mb-1">
+                <span className="text-red-400">Taxa de Saída</span>
+                <span className="text-red-400 font-medium">{departureRate}%</span>
+              </div>
+              <input 
+                type="range" min="0" max="100" step="5"
+                value={departureRate}
+                onChange={(e) => setDepartureRate(Number(e.target.value))}
+                className="w-full accent-red-500 bg-slate-800 rounded-lg appearance-none h-2 cursor-pointer"
+              />
+            </div>
+          </div>
+
+          <div>
+            <h2 className="text-sm font-semibold text-slate-300 flex items-center gap-2 mb-3">
+              <Target size={16} /> Estratégia de Mitigação
+            </h2>
+            <div>
+              <div className="flex justify-between text-sm mb-1">
+                <span className="text-slate-400">Retenção Fan Zone</span>
+                <span className="text-blue-400 font-medium">{mitigation}%</span>
+              </div>
+              <input 
+                type="range" min="0" max="50" step="5"
+                value={mitigation}
+                onChange={(e) => setMitigation(Number(e.target.value))}
+                className="w-full accent-blue-500 bg-slate-800 rounded-lg appearance-none h-2 cursor-pointer"
+              />
+            </div>
+          </div>
+
+          <div className="pt-4 border-t border-slate-700">
+            <h2 className="text-sm font-semibold text-slate-300 flex items-center gap-2 mb-3">
+              <Train size={16} /> Status da Estação
+            </h2>
+            <div className="bg-slate-800 rounded-lg p-3 flex justify-between items-center border border-slate-700">
+              <span className="text-sm text-slate-400">Ponte GO</span>
+              <span className="text-sm font-bold flex items-center gap-1 text-yellow-400">
+                Monitorando <span className="relative flex h-2 w-2 ml-1">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-yellow-500"></span>
+                </span>
+              </span>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    // ==========================================
+    // 2. SCENERY COMPONENT (BMO FIELD)
+    // ==========================================
+    const SCENERY_BOUNDS = {
+      stadium: { x: 0, z: 0, width: 100, depth: 130 },
+      station: { x: 0, z: -180, width: 90, depth: 40 },
+      bridge: { x: 0, z: -120, width: 25, depth: 80 },
+      fanZones: [
+        { x: -90, z: 20, width: 50, depth: 60 },
+        { x: 90, z: 20, width: 50, depth: 60 }
+      ],
+      turnstiles: [
+        { x: 0, z: 100, width: 80, depth: 10 }
+      ],
+      streets: {
+        south: { x: 0, z: 170 },
+        east: { x: 150, z: 0 },
+        north: { x: 0, z: -140 }
+      }
+    };
+
+    const Scenery = () => {
+      const grassTexture = useMemo(() => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 512;
+        canvas.height = 512;
+        const context = canvas.getContext('2d');
+        context.fillStyle = '#166534';
+        context.fillRect(0, 0, 512, 512);
+        context.fillStyle = '#15803d';
+        for (let i = 0; i < 4000; i++) context.fillRect(Math.random() * 512, Math.random() * 512, 2, 2);
+        
+        context.fillStyle = 'rgba(255, 255, 255, 0.7)';
+        context.fillRect(20, 20, 472, 5); 
+        context.fillRect(20, 487, 472, 5); 
+        context.fillRect(20, 20, 5, 472); 
+        context.fillRect(487, 20, 5, 472); 
+        context.fillRect(20, 254, 472, 5); 
+        
+        context.beginPath();
+        context.arc(256, 256, 50, 0, 2 * Math.PI);
+        context.lineWidth = 5;
+        context.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+        context.stroke();
+
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.anisotropy = 16;
+        return tex;
+      }, []);
+
+      const concreteTexture = useMemo(() => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 256;
+        canvas.height = 256;
+        const context = canvas.getContext('2d');
+        context.fillStyle = '#475569';
+        context.fillRect(0, 0, 256, 256);
+        context.fillStyle = '#334155';
+        for (let i = 0; i < 5000; i++) context.fillRect(Math.random() * 256, Math.random() * 256, 1, 1);
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.wrapS = THREE.RepeatWrapping;
+        tex.wrapT = THREE.RepeatWrapping;
+        tex.repeat.set(15, 15);
+        return tex;
+      }, []);
+
+      return (
+        <group>
+          {/* Ground */}
+          <Plane args={[1000, 1000]} rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.5, 0]} receiveShadow>
+            <meshStandardMaterial map={concreteTexture} roughness={0.9} metalness={0.1} />
+          </Plane>
+
+          {/* BMO Field */}
+          <group position={[0, 0, 0]}>
+            <Plane args={[68, 105]} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.1, 0]} receiveShadow>
+              <meshStandardMaterial map={grassTexture} roughness={1} />
+            </Plane>
+            {/* West Stand */}
+            <group position={[-45, 0, 0]}>
+              <Box args={[30, 2, 110]} rotation={[0, 0, -Math.PI / 6]} position={[0, 8, 0]} castShadow receiveShadow>
+                 <meshStandardMaterial color="#dc2626" roughness={0.8} />
+              </Box>
+              <Box args={[10, 16, 110]} position={[-14, 8, 0]} castShadow receiveShadow>
+                 <meshStandardMaterial color="#1e293b" roughness={0.7} />
+              </Box>
+              <Box args={[38, 1, 110]} position={[2, 28, 0]} rotation={[0, 0, Math.PI / 12]} castShadow receiveShadow>
+                 <meshStandardMaterial color="#f8fafc" roughness={0.3} metalness={0.2} />
+              </Box>
+              <Cylinder args={[0.5, 0.5, 15]} position={[-15, 22, -45]} rotation={[0,0,-0.2]} castShadow>
+                <meshStandardMaterial color="#94a3b8" metalness={0.7} />
+              </Cylinder>
+              <Cylinder args={[0.5, 0.5, 15]} position={[-15, 22, 45]} rotation={[0,0,-0.2]} castShadow>
+                <meshStandardMaterial color="#94a3b8" metalness={0.7} />
+              </Cylinder>
+              <Cylinder args={[0.5, 0.5, 20]} position={[-8, 20, 0]} castShadow>
+                <meshStandardMaterial color="#94a3b8" metalness={0.7} />
+              </Cylinder>
+            </group>
+            {/* East Stand */}
+            <group position={[45, 0, 0]}>
+              <Box args={[30, 2, 110]} rotation={[0, 0, Math.PI / 6]} position={[0, 8, 0]} castShadow receiveShadow>
+                 <meshStandardMaterial color="#dc2626" roughness={0.8} />
+              </Box>
+              <Box args={[10, 16, 110]} position={[14, 8, 0]} castShadow receiveShadow>
+                 <meshStandardMaterial color="#1e293b" roughness={0.7} />
+              </Box>
+              <Box args={[38, 1, 110]} position={[-2, 28, 0]} rotation={[0, 0, -Math.PI / 12]} castShadow receiveShadow>
+                 <meshStandardMaterial color="#f8fafc" roughness={0.3} metalness={0.2} />
+              </Box>
+              <Cylinder args={[0.5, 0.5, 15]} position={[15, 22, -45]} rotation={[0,0,0.2]} castShadow>
+                <meshStandardMaterial color="#94a3b8" metalness={0.7} />
+              </Cylinder>
+              <Cylinder args={[0.5, 0.5, 15]} position={[15, 22, 45]} rotation={[0,0,0.2]} castShadow>
+                <meshStandardMaterial color="#94a3b8" metalness={0.7} />
+              </Cylinder>
+              <Cylinder args={[0.5, 0.5, 20]} position={[8, 20, 0]} castShadow>
+                <meshStandardMaterial color="#94a3b8" metalness={0.7} />
+              </Cylinder>
+            </group>
+            {/* North Stand */}
+            <group position={[0, 0, -62]}>
+              <Box args={[68, 2, 25]} rotation={[Math.PI / 6, 0, 0]} position={[0, 6, 0]} castShadow receiveShadow>
+                 <meshStandardMaterial color="#dc2626" roughness={0.8} />
+              </Box>
+              <Box args={[68, 12, 10]} position={[0, 6, -10]} castShadow receiveShadow>
+                 <meshStandardMaterial color="#1e293b" roughness={0.7} />
+              </Box>
+            </group>
+            {/* South Stand */}
+            <group position={[0, 0, 62]}>
+              <Box args={[68, 2, 25]} rotation={[-Math.PI / 6, 0, 0]} position={[0, 6, 0]} castShadow receiveShadow>
+                 <meshStandardMaterial color="#dc2626" roughness={0.8} />
+              </Box>
+              <Box args={[68, 12, 10]} position={[0, 6, 10]} castShadow receiveShadow>
+                 <meshStandardMaterial color="#1e293b" roughness={0.7} />
+              </Box>
+            </group>
+            <Text position={[0, 45, 0]} fontSize={8} color="#ffffff" rotation={[-Math.PI/4, 0, 0]} castShadow>
+              BMO FIELD
+            </Text>
+          </group>
+
+          {/* Station */}
+          <group position={[SCENERY_BOUNDS.station.x, 0, SCENERY_BOUNDS.station.z]}>
+            <Box args={[SCENERY_BOUNDS.station.width, 35, SCENERY_BOUNDS.station.depth]} position={[0, 17.5, 0]} castShadow receiveShadow>
+              <meshStandardMaterial color="#334155" roughness={0.6} metalness={0.3} />
+            </Box>
+            <Box args={[SCENERY_BOUNDS.station.width - 10, 20, 1]} position={[0, 15, SCENERY_BOUNDS.station.depth/2 + 0.1]} castShadow receiveShadow>
+              <meshStandardMaterial color="#38bdf8" roughness={0.1} metalness={0.9} transparent opacity={0.6} />
+            </Box>
+            <Text position={[0, 42, 0]} fontSize={6} color="#e2e8f0" rotation={[-Math.PI/6, 0, 0]}>
+              EXHIBITION GO STATION
+            </Text>
+          </group>
+
+          {/* Bridge */}
+          <group position={[SCENERY_BOUNDS.bridge.x, 15, SCENERY_BOUNDS.bridge.z]}>
+            <Box args={[SCENERY_BOUNDS.bridge.width, 3, SCENERY_BOUNDS.bridge.depth]} castShadow receiveShadow>
+              <meshStandardMaterial color="#94a3b8" roughness={0.8} />
+            </Box>
+            <Box args={[1, 5, SCENERY_BOUNDS.bridge.depth]} position={[-SCENERY_BOUNDS.bridge.width/2 + 0.5, 4, 0]} castShadow receiveShadow>
+               <meshStandardMaterial color="#64748b" />
+            </Box>
+            <Box args={[1, 5, SCENERY_BOUNDS.bridge.depth]} position={[SCENERY_BOUNDS.bridge.width/2 - 0.5, 4, 0]} castShadow receiveShadow>
+               <meshStandardMaterial color="#64748b" />
+            </Box>
+          </group>
+
+          {/* Fan Zones */}
+          {SCENERY_BOUNDS.fanZones.map((fz, idx) => (
+            <group key={`fz-${idx}`} position={[fz.x, 0.1, fz.z]}>
+              <Plane args={[fz.width, fz.depth]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+                <meshStandardMaterial color="#3b82f6" opacity={0.2} transparent />
+              </Plane>
+              <Text position={[0, 15, 0]} fontSize={5} color="#60a5fa" rotation={[-Math.PI/4, 0, 0]}>
+                FAN ZONE
+              </Text>
+            </group>
+          ))}
+
+          {/* Turnstiles */}
+          {SCENERY_BOUNDS.turnstiles.map((ts, idx) => (
+            <group key={`ts-${idx}`} position={[ts.x, 0, ts.z]}>
+              <Box args={[ts.width + 10, 0.5, ts.depth + 20]} position={[0, 0.25, 0]} receiveShadow>
+                <meshStandardMaterial color="#475569" />
+              </Box>
+              <Text position={[0, 8, 0]} fontSize={4} color="#fbbf24" rotation={[-Math.PI/4, 0, 0]}>
+                SECURITY & CHECK-IN
+              </Text>
+            </group>
+          ))}
+        </group>
+      );
+    };
+
+    // ==========================================
+    // 3. AGENT SIMULATION COMPONENT
+    // ==========================================
+    const NUM_AGENTS = 5000;
+    const AGENT_SPEED = 0.8;
+    const tempObject = new THREE.Object3D();
+    const colorGreen = new THREE.Color('#10b981');
+    const colorRed = new THREE.Color('#ef4444');
+    const colorYellow = new THREE.Color('#fbbf24');
+    const colorBlue = new THREE.Color('#3b82f6');
+
+    function AgentSimulation({ arrivalRate, departureRate, mitigation }) {
+      const meshRef = useRef();
+
+      const agents = useMemo(() => {
+        return new Array(NUM_AGENTS).fill().map((_, i) => ({
+          id: i,
+          position: new THREE.Vector3(0, -100, 0),
+          target: new THREE.Vector3(),
+          state: 'idle', 
+          color: new THREE.Color('#000000'),
+          waitTime: 0,
+          isMitigated: false
+        }));
+      }, []);
+
+      useEffect(() => {
+        if (!meshRef.current) return;
+        agents.forEach((agent, i) => {
+          meshRef.current.setColorAt(i, agent.color);
+        });
+        meshRef.current.instanceColor.needsUpdate = true;
+      }, [agents]);
+
+      useFrame((state, delta) => {
+        if (!meshRef.current) return;
+        let needsColorUpdate = false;
+
+        const spawnsPerSecEntry = (arrivalRate / 100) * 20; 
+        const spawnsThisFrameEntry = spawnsPerSecEntry * delta;
+        const countEntry = Math.floor(spawnsThisFrameEntry) + (Math.random() < (spawnsThisFrameEntry % 1) ? 1 : 0);
+
+        const spawnsPerSecExit = (departureRate / 100) * 20; 
+        const spawnsThisFrameExit = spawnsPerSecExit * delta;
+        const countExit = Math.floor(spawnsThisFrameExit) + (Math.random() < (spawnsThisFrameExit % 1) ? 1 : 0);
+
+        const trySpawn = (type) => {
+           const idleAgent = agents.find(a => a.state === 'idle');
+           if (!idleAgent) return; 
+           
+           if (type === 'entry') {
+              idleAgent.position.set((Math.random() - 0.5) * 200, 0.5, SCENERY_BOUNDS.streets.south.z + (Math.random() * 20));
+              idleAgent.target.set(SCENERY_BOUNDS.turnstiles[0].x + (Math.random() - 0.5) * SCENERY_BOUNDS.turnstiles[0].width, 0.5, SCENERY_BOUNDS.turnstiles[0].z + (Math.random() - 0.5) * SCENERY_BOUNDS.turnstiles[0].depth);
+              idleAgent.state = 'moving_to_turnstile';
+              idleAgent.color.copy(colorGreen);
+           } else if (type === 'exit') {
+              idleAgent.position.set((Math.random() - 0.5) * SCENERY_BOUNDS.stadium.width, 0.5, (Math.random() - 0.5) * SCENERY_BOUNDS.stadium.depth);
+              idleAgent.isMitigated = (Math.random() * 100) < mitigation;
+              if (idleAgent.isMitigated) {
+                 idleAgent.state = 'moving_to_fanzone';
+                 const fz = SCENERY_BOUNDS.fanZones[Math.floor(Math.random() * SCENERY_BOUNDS.fanZones.length)];
+                 idleAgent.target.set(fz.x + (Math.random() - 0.5) * fz.width, 0.5, fz.z + (Math.random() - 0.5) * fz.depth);
+                 idleAgent.color.copy(colorBlue);
+              } else {
+                 idleAgent.state = 'moving_to_station';
+                 idleAgent.target.set(SCENERY_BOUNDS.bridge.x + (Math.random() - 0.5) * SCENERY_BOUNDS.bridge.width, 0.5, SCENERY_BOUNDS.bridge.z + (Math.random() - 0.5) * SCENERY_BOUNDS.bridge.depth);
+                 idleAgent.color.copy(colorRed);
+              }
+           }
+           meshRef.current.setColorAt(idleAgent.id, idleAgent.color);
+           needsColorUpdate = true;
+        };
+
+        for(let j = 0; j < countEntry; j++) trySpawn('entry');
+        for(let j = 0; j < countExit; j++) trySpawn('exit');
+
+        agents.forEach((agent, i) => {
+          if (agent.state === 'idle') {
+            tempObject.position.set(0, -100, 0); 
+            tempObject.updateMatrix();
+            meshRef.current.setMatrixAt(i, tempObject.matrix);
+            return;
+          }
+          
+          const dir = new THREE.Vector3().subVectors(agent.target, agent.position);
+          const dist = dir.length();
+          
+          if (dist < 2) {
+             if (agent.state === 'moving_to_turnstile') {
+                agent.state = 'moving_to_stadium';
+                agent.target.set((Math.random() - 0.5) * SCENERY_BOUNDS.stadium.width, 0.5, (Math.random() - 0.5) * SCENERY_BOUNDS.stadium.depth);
+             } else if (agent.state === 'moving_to_stadium') {
+                agent.state = 'idle'; 
+             } else if (agent.state === 'moving_to_fanzone') {
+                agent.state = 'waiting_fanzone';
+                agent.waitTime = 3 + Math.random() * 5; 
+             } else if (agent.state === 'moving_to_station') {
+                agent.state = 'idle'; 
+             }
+          }
+          
+          if (agent.state === 'waiting_fanzone') {
+             agent.waitTime -= delta;
+             if (agent.waitTime <= 0) {
+                agent.state = 'moving_to_station';
+                agent.target.set(SCENERY_BOUNDS.bridge.x + (Math.random() - 0.5) * SCENERY_BOUNDS.bridge.width, 0.5, SCENERY_BOUNDS.bridge.z + (Math.random() - 0.5) * SCENERY_BOUNDS.bridge.depth);
+                agent.color.copy(colorRed);
+                meshRef.current.setColorAt(i, agent.color);
+                needsColorUpdate = true;
+             }
+          } 
+          else if (agent.state !== 'idle') {
+             dir.normalize();
+             let speedMultiplier = 1;
+             if (agent.state === 'moving_to_station' && agent.position.z < -50) {
+                speedMultiplier = 0.3 + (Math.random() * 0.2);
+                const heatFactor = Math.max(0, 1 - (dist / 60));
+                agent.color.lerpColors(colorRed, colorYellow, heatFactor * 0.05); 
+                meshRef.current.setColorAt(i, agent.color);
+                needsColorUpdate = true;
+             } else if (agent.state === 'moving_to_turnstile' && dist < 30) {
+                speedMultiplier = 0.5; 
+             }
+             agent.position.addScaledVector(dir, AGENT_SPEED * speedMultiplier);
+          }
+
+          tempObject.position.copy(agent.position);
+          tempObject.updateMatrix();
+          meshRef.current.setMatrixAt(i, tempObject.matrix);
+        });
+
+        meshRef.current.instanceMatrix.needsUpdate = true;
+        if (needsColorUpdate) {
+          meshRef.current.instanceColor.needsUpdate = true;
+        }
+      });
+
+      return (
+        <instancedMesh ref={meshRef} args={[null, null, NUM_AGENTS]} castShadow receiveShadow>
+          <cylinderGeometry args={[0.4, 0.4, 1.8, 8]} />
+          <meshStandardMaterial />
+        </instancedMesh>
+      );
+    }
+
+    // ==========================================
+    // 4. MAIN APP COMPONENT
+    // ==========================================
+    function App() {
+      const [arrivalRate, setArrivalRate] = useState(30); 
+      const [departureRate, setDepartureRate] = useState(10); 
+      const [fanZoneMitigation, setFanZoneMitigation] = useState(20); 
+
+      return (
+        <div className="w-screen h-screen relative bg-slate-900 text-white overflow-hidden">
+          <Dashboard 
+            arrivalRate={arrivalRate} setArrivalRate={setArrivalRate}
+            departureRate={departureRate} setDepartureRate={setDepartureRate}
+            mitigation={fanZoneMitigation} setMitigation={setFanZoneMitigation}
+          />
+          <Canvas shadows camera={{ position: [0, 150, 200], fov: 45 }}>
+            <color attach="background" args={['#0f172a']} />
+            <ambientLight intensity={0.4} />
+            <directionalLight 
+              position={[150, 250, 100]} intensity={1.2} castShadow 
+              shadow-mapSize-width={2048} shadow-mapSize-height={2048}
+              shadow-camera-far={500} shadow-camera-left={-200}
+              shadow-camera-right={200} shadow-camera-top={200}
+              shadow-camera-bottom={-200} shadow-bias={-0.0001}
+            />
+            <Sky sunPosition={[150, 20, 100]} turbidity={0.3} rayleigh={0.8} />
+            <Environment preset="sunset" />
+            <BakeShadows />
+            <Scenery />
+            <AgentSimulation arrivalRate={arrivalRate} departureRate={departureRate} mitigation={fanZoneMitigation} />
+            <OrbitControls enablePan={true} enableZoom={true} enableRotate={true} maxPolarAngle={Math.PI / 2 - 0.05} />
+          </Canvas>
+        </div>
+      );
+    }
+
+    const root = createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
