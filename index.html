@@ -1,34 +1,62 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Toronto Stadium 3D Sim</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Toronto Stadium 3D Sim</title>
 
-  <!-- Tailwind CSS -->
-  <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
-  <style type="text/tailwindcss">
-    @theme {
-      --color-primary: #10b981;
-      --color-secondary: #ef4444;
-      --color-stadium: #1f2937;
-      --color-fan-zone: #3b82f6;
-    }
-    body {
-      margin: 0;
-      padding: 0;
-      overflow: hidden;
-      font-family: 'Inter', sans-serif;
-      background-color: #0f172a;
-    }
-    #root {
-      width: 100vw;
-      height: 100vh;
-    }
-  </style>
+    <!-- Tailwind CSS -->
+    <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
+    <style type="text/tailwindcss">
+        @theme {
+            --color-primary: #10b981;
+            --color-secondary: #ef4444;
+            --color-stadium: #1f2937;
+            --color-fan-zone: #3b82f6;
+            --color-fifa-blue: #0f172a;
+            --color-fifa-cyan: #06b6d4;
+            --color-fifa-green: #22c55e;
+            --color-fifa-purple: #8b5cf6;
+            --color-germany: #eab308;
+            --color-cotedivoire: #f97316;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
+        }
+        #root {
+            width: 100vw;
+            height: 100vh;
+        }
+        /* Custom scrollbar para o painel */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.5);
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(139, 92, 246, 0.5);
+            border-radius: 2px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(139, 92, 246, 0.8);
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fadeIn {
+            animation: fadeIn 0.3s ease-out forwards;
+        }
+    </style>
 
-  <!-- Import Maps for ES Modules -->
-  <script type="importmap">
+    <!-- Import Maps for ES Modules -->
+    <script type="importmap">
     {
       "imports": {
         "react": "https://esm.sh/react@18.2.0",
@@ -42,480 +70,1066 @@
     }
   </script>
 
-  <!-- Babel Standalone for in-browser JSX compilation -->
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Babel Standalone for in-browser JSX compilation -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
+
 <body>
-  <div id="root"></div>
+    <div id="root"></div>
 
-  <!-- Main Application Code -->
-  <script type="text/babel" data-type="module">
-    import React, { useState, useMemo, useRef, useEffect } from 'react';
-    import { createRoot } from 'react-dom/client';
-    import { Canvas, useFrame } from '@react-three/fiber';
-    import { OrbitControls, Sky, Environment, BakeShadows, Box, Cylinder, Plane, Text } from '@react-three/drei';
-    import * as THREE from 'three';
-    import { Activity, Settings2, Train, Target } from 'lucide-react';
+    <!-- Main Application Code -->
+    <script type="text/babel" data-type="module">
+        import React, { useState, useMemo, useRef, useEffect } from 'react';
+        import { createRoot } from 'react-dom/client';
+        import { Canvas, useFrame } from '@react-three/fiber';
+        import { OrbitControls, Sky, Environment, BakeShadows, Box, Cylinder, Plane, Text } from '@react-three/drei';
+        import * as THREE from 'three';
+        import { Activity, Settings2, Train, Target } from 'lucide-react';
 
-    // ==========================================
-    // 1. DASHBOARD COMPONENT
-    // ==========================================
-    const Dashboard = ({ arrivalRate, setArrivalRate, departureRate, setDepartureRate, mitigation, setMitigation }) => {
-      return (
-        <div className="absolute top-4 left-4 z-10 w-80 bg-slate-900/90 backdrop-blur-md border border-slate-700 rounded-xl p-5 shadow-2xl flex flex-col gap-5">
-          <div>
-            <h1 className="text-xl font-bold bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent flex items-center gap-2">
-              <Activity size={24} className="text-emerald-400"/> 
-              Toronto Stadium Sim
-            </h1>
-            <p className="text-slate-400 text-sm mt-1">Fluxo Contínuo em Tempo Real</p>
-          </div>
+        // ==========================================
+        // 1. DASHBOARD COMPONENT
+        // ==========================================
+        const Dashboard = ({
+            activeTab,
+            setActiveTab,
+            arrivalRate,
+            setArrivalRate,
+            departureRate,
+            setDepartureRate,
+            mitigation,
+            setMitigation,
+            trainFrequencySolution,
+            setTrainFrequencySolution,
+            extraTurnstilesSolution,
+            setExtraTurnstilesSolution,
+            oneWayBridgeSolution,
+            setOneWayBridgeSolution
+        }) => {
+            return (
+                <div className="absolute top-4 left-4 z-10 w-96 max-h-[92vh] bg-slate-950/85 backdrop-blur-xl border border-slate-800 rounded-2xl shadow-2xl flex flex-col overflow-hidden text-slate-100">
+                    {/* Header */}
+                    <div className="bg-gradient-to-r from-violet-600 via-indigo-700 to-cyan-500 p-4 relative overflow-hidden flex-shrink-0">
+                        <div className="absolute inset-0 opacity-10 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-white via-indigo-900 to-slate-900"></div>
+                        <div className="relative z-10 flex items-center justify-between">
+                            <div>
+                                <span className="text-[10px] tracking-widest font-bold uppercase bg-slate-900/60 text-cyan-300 px-2 py-0.5 rounded-full">
+                                    FIFA WORLD CUP 2026
+                                </span>
+                                <h1 className="text-lg font-black tracking-tight mt-1 flex items-center gap-2 text-white">
+                                    <Activity className="text-cyan-400 animate-pulse" size={20} />
+                                    TORONTO SIMULATOR
+                                </h1>
+                            </div>
+                            <span className="text-xl font-bold text-white/95">CAN 🍁</span>
+                        </div>
+                    </div>
 
-          <div className="space-y-4">
-            <h2 className="text-sm font-semibold text-slate-300 flex items-center gap-2">
-              <Settings2 size={16} /> Volume de Pessoas
-            </h2>
-            <div>
-              <div className="flex justify-between text-sm mb-1">
-                <span className="text-emerald-400">Taxa de Chegada</span>
-                <span className="text-emerald-400 font-medium">{arrivalRate}%</span>
-              </div>
-              <input 
-                type="range" min="0" max="100" step="5"
-                value={arrivalRate}
-                onChange={(e) => setArrivalRate(Number(e.target.value))}
-                className="w-full accent-emerald-500 bg-slate-800 rounded-lg appearance-none h-2 cursor-pointer"
-              />
-            </div>
-            <div>
-              <div className="flex justify-between text-sm mb-1">
-                <span className="text-red-400">Taxa de Saída</span>
-                <span className="text-red-400 font-medium">{departureRate}%</span>
-              </div>
-              <input 
-                type="range" min="0" max="100" step="5"
-                value={departureRate}
-                onChange={(e) => setDepartureRate(Number(e.target.value))}
-                className="w-full accent-red-500 bg-slate-800 rounded-lg appearance-none h-2 cursor-pointer"
-              />
-            </div>
-          </div>
+                    {/* Navigation Tabs */}
+                    <div className="flex border-b border-slate-800 bg-slate-900/50 text-[11px] font-bold overflow-x-auto flex-shrink-0">
+                        {[
+                            { id: 'jogo', label: '⚽ Jogo' },
+                            { id: 'simulacao', label: '⚙️ Sim' },
+                            { id: 'logistica', label: '🚚 Logística' },
+                            { id: 'riscos', label: '⚠️ Riscos' },
+                            { id: 'tecnologias', label: '💻 Tech' }
+                        ].map((tab) => (
+                            <button
+                                key={tab.id}
+                                onClick={() => setActiveTab(tab.id)}
+                                className={`flex-1 py-3 px-1 text-center border-b-2 transition-all duration-350 whitespace-nowrap ${
+                                    activeTab === tab.id
+                                        ? 'border-violet-500 text-violet-400 bg-slate-900/80'
+                                        : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-900/30'
+                                }`}
+                            >
+                                {tab.label}
+                            </button>
+                        ))}
+                    </div>
 
-          <div>
-            <h2 className="text-sm font-semibold text-slate-300 flex items-center gap-2 mb-3">
-              <Target size={16} /> Estratégia de Mitigação
-            </h2>
-            <div>
-              <div className="flex justify-between text-sm mb-1">
-                <span className="text-slate-400">Retenção Fan Zone</span>
-                <span className="text-blue-400 font-medium">{mitigation}%</span>
-              </div>
-              <input 
-                type="range" min="0" max="50" step="5"
-                value={mitigation}
-                onChange={(e) => setMitigation(Number(e.target.value))}
-                className="w-full accent-blue-500 bg-slate-800 rounded-lg appearance-none h-2 cursor-pointer"
-              />
-            </div>
-          </div>
+                    {/* Content Container (Scrollable) */}
+                    <div className="flex-grow p-4 overflow-y-auto custom-scrollbar space-y-4 text-sm">
+                        {activeTab === 'jogo' && (
+                            <div className="space-y-4 animate-fadeIn">
+                                <div className="p-3.5 bg-slate-900/70 border border-slate-800 rounded-xl space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[10px] text-violet-400 font-semibold uppercase tracking-wider">Fase de Grupos</span>
+                                        <span className="text-[10px] text-slate-400">Grupo B - Rodada 1</span>
+                                    </div>
+                                    
+                                    {/* Confronto */}
+                                    <div className="flex items-center justify-around py-1.5">
+                                        {/* Alemanha */}
+                                        <div className="flex flex-col items-center space-y-1.5">
+                                            <div className="w-10 h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-lg relative overflow-hidden shadow-md">
+                                                <div className="absolute inset-0 flex flex-col">
+                                                    <div className="bg-black h-1/3 w-full"></div>
+                                                    <div className="bg-red-600 h-1/3 w-full"></div>
+                                                    <div className="bg-yellow-500 h-1/3 w-full"></div>
+                                                </div>
+                                            </div>
+                                            <span className="text-xs font-bold text-slate-200">Alemanha</span>
+                                            <span className="text-[9px] text-slate-400 px-1 py-0.2 bg-slate-800 rounded">GER</span>
+                                        </div>
 
-          <div className="pt-4 border-t border-slate-700">
-            <h2 className="text-sm font-semibold text-slate-300 flex items-center gap-2 mb-3">
-              <Train size={16} /> Status da Estação
-            </h2>
-            <div className="bg-slate-800 rounded-lg p-3 flex justify-between items-center border border-slate-700">
-              <span className="text-sm text-slate-400">Ponte GO</span>
-              <span className="text-sm font-bold flex items-center gap-1 text-yellow-400">
-                Monitorando <span className="relative flex h-2 w-2 ml-1">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-yellow-500"></span>
-                </span>
-              </span>
-            </div>
-          </div>
-        </div>
-      );
-    };
+                                        <span className="text-sm font-black text-slate-500 bg-slate-900 px-2 py-1 rounded-full border border-slate-800">VS</span>
 
-    // ==========================================
-    // 2. SCENERY COMPONENT (BMO FIELD)
-    // ==========================================
-    const SCENERY_BOUNDS = {
-      stadium: { x: 0, z: 0, width: 100, depth: 130 },
-      station: { x: 0, z: -180, width: 90, depth: 40 },
-      bridge: { x: 0, z: -120, width: 25, depth: 80 },
-      fanZones: [
-        { x: -90, z: 20, width: 50, depth: 60 },
-        { x: 90, z: 20, width: 50, depth: 60 }
-      ],
-      turnstiles: [
-        { x: 0, z: 100, width: 80, depth: 10 }
-      ],
-      streets: {
-        south: { x: 0, z: 170 },
-        east: { x: 150, z: 0 },
-        north: { x: 0, z: -140 }
-      }
-    };
+                                        {/* Costa do Marfim */}
+                                        <div className="flex flex-col items-center space-y-1.5">
+                                            <div className="w-10 h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-lg relative overflow-hidden shadow-md">
+                                                <div className="absolute inset-0 flex">
+                                                    <div className="bg-orange-500 w-1/3 h-full"></div>
+                                                    <div className="bg-white w-1/3 h-full"></div>
+                                                    <div className="bg-green-600 w-1/3 h-full"></div>
+                                                </div>
+                                            </div>
+                                            <span className="text-xs font-bold text-slate-200">C. Marfim</span>
+                                            <span className="text-[9px] text-slate-400 px-1 py-0.2 bg-slate-800 rounded">CIV</span>
+                                        </div>
+                                    </div>
+                                </div>
 
-    const Scenery = () => {
-      const grassTexture = useMemo(() => {
-        const canvas = document.createElement('canvas');
-        canvas.width = 512;
-        canvas.height = 512;
-        const context = canvas.getContext('2d');
-        context.fillStyle = '#166534';
-        context.fillRect(0, 0, 512, 512);
-        context.fillStyle = '#15803d';
-        for (let i = 0; i < 4000; i++) context.fillRect(Math.random() * 512, Math.random() * 512, 2, 2);
-        
-        context.fillStyle = 'rgba(255, 255, 255, 0.7)';
-        context.fillRect(20, 20, 472, 5); 
-        context.fillRect(20, 487, 472, 5); 
-        context.fillRect(20, 20, 5, 472); 
-        context.fillRect(487, 20, 5, 472); 
-        context.fillRect(20, 254, 472, 5); 
-        
-        context.beginPath();
-        context.arc(256, 256, 50, 0, 2 * Math.PI);
-        context.lineWidth = 5;
-        context.strokeStyle = 'rgba(255, 255, 255, 0.7)';
-        context.stroke();
+                                <div className="space-y-2">
+                                    <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Local da Partida</h3>
+                                    <div className="p-3 bg-slate-900/40 border border-slate-800/80 rounded-xl space-y-1 text-xs">
+                                        <p className="text-slate-200 font-semibold flex justify-between">
+                                            <span>Estádio Escolhido:</span>
+                                            <span className="text-violet-400">Toronto Stadium (BMO Field)</span>
+                                        </p>
+                                        <p className="text-slate-400 flex justify-between">
+                                            <span>Cidade:</span>
+                                            <span>Toronto, Ontário, Canadá</span>
+                                        </p>
+                                        <p className="text-slate-400 flex justify-between">
+                                            <span>Capacidade Copa:</span>
+                                            <span>45.000 espectadores</span>
+                                        </p>
+                                        <p className="text-slate-400 flex justify-between">
+                                            <span>Tipo de Gramado:</span>
+                                            <span>Híbrido (SISGrass)</span>
+                                        </p>
+                                    </div>
+                                </div>
 
-        const tex = new THREE.CanvasTexture(canvas);
-        tex.anisotropy = 16;
-        return tex;
-      }, []);
+                                <div className="p-3 bg-violet-950/20 border border-violet-850/30 rounded-xl text-xs text-violet-300">
+                                    <p className="font-bold mb-1">Contexto do Evento</p>
+                                    <p className="leading-relaxed text-slate-400">
+                                        Este duelo da Copa do Mundo FIFA de 2026 marca uma importante operação logística em Toronto. O simulador analisa o fluxo de 5.000 torcedores entre a estação de trem e o estádio.
+                                    </p>
+                                </div>
+                            </div>
+                        )}
 
-      const concreteTexture = useMemo(() => {
-        const canvas = document.createElement('canvas');
-        canvas.width = 256;
-        canvas.height = 256;
-        const context = canvas.getContext('2d');
-        context.fillStyle = '#475569';
-        context.fillRect(0, 0, 256, 256);
-        context.fillStyle = '#334155';
-        for (let i = 0; i < 5000; i++) context.fillRect(Math.random() * 256, Math.random() * 256, 1, 1);
-        const tex = new THREE.CanvasTexture(canvas);
-        tex.wrapS = THREE.RepeatWrapping;
-        tex.wrapT = THREE.RepeatWrapping;
-        tex.repeat.set(15, 15);
-        return tex;
-      }, []);
+                        {activeTab === 'simulacao' && (
+                            <div className="space-y-4 animate-fadeIn">
+                                <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                                    <Settings2 size={14} className="text-violet-400" /> Parâmetros de Fluxo
+                                </h3>
+                                
+                                <div className="space-y-4">
+                                    <div className="p-3 bg-slate-900/30 border border-slate-850 rounded-xl space-y-2">
+                                        <div className="flex justify-between text-xs">
+                                            <span className="text-emerald-450 font-medium">Taxa de Chegada</span>
+                                            <span className="text-emerald-400 font-bold">{arrivalRate}%</span>
+                                        </div>
+                                        <input
+                                            type="range" min="0" max="100" step="5"
+                                            value={arrivalRate}
+                                            onChange={(e) => setArrivalRate(Number(e.target.value))}
+                                            className="w-full accent-emerald-550 bg-slate-800 rounded-lg appearance-none h-1.5 cursor-pointer"
+                                        />
+                                        <p className="text-[10px] text-slate-500 leading-tight">Volume de torcedores que chegam ao estádio do setor sul.</p>
+                                    </div>
 
-      return (
-        <group>
-          {/* Ground */}
-          <Plane args={[1000, 1000]} rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.5, 0]} receiveShadow>
-            <meshStandardMaterial map={concreteTexture} roughness={0.9} metalness={0.1} />
-          </Plane>
+                                    <div className="p-3 bg-slate-900/30 border border-slate-850 rounded-xl space-y-2">
+                                        <div className="flex justify-between text-xs">
+                                            <span className="text-red-450 font-medium">Taxa de Saída (Evacuação)</span>
+                                            <span className="text-red-405 font-bold">{departureRate}%</span>
+                                        </div>
+                                        <input
+                                            type="range" min="0" max="100" step="5"
+                                            value={departureRate}
+                                            onChange={(e) => setDepartureRate(Number(e.target.value))}
+                                            className="w-full accent-red-550 bg-slate-800 rounded-lg appearance-none h-1.5 cursor-pointer"
+                                        />
+                                        <p className="text-[10px] text-slate-500 leading-tight">Volume de torcedores que evacua o estádio em direção ao norte.</p>
+                                    </div>
 
-          {/* BMO Field */}
-          <group position={[0, 0, 0]}>
-            <Plane args={[68, 105]} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.1, 0]} receiveShadow>
-              <meshStandardMaterial map={grassTexture} roughness={1} />
-            </Plane>
-            {/* West Stand */}
-            <group position={[-45, 0, 0]}>
-              <Box args={[30, 2, 110]} rotation={[0, 0, -Math.PI / 6]} position={[0, 8, 0]} castShadow receiveShadow>
-                 <meshStandardMaterial color="#dc2626" roughness={0.8} />
-              </Box>
-              <Box args={[10, 16, 110]} position={[-14, 8, 0]} castShadow receiveShadow>
-                 <meshStandardMaterial color="#1e293b" roughness={0.7} />
-              </Box>
-              <Box args={[38, 1, 110]} position={[2, 28, 0]} rotation={[0, 0, Math.PI / 12]} castShadow receiveShadow>
-                 <meshStandardMaterial color="#f8fafc" roughness={0.3} metalness={0.2} />
-              </Box>
-              <Cylinder args={[0.5, 0.5, 15]} position={[-15, 22, -45]} rotation={[0,0,-0.2]} castShadow>
-                <meshStandardMaterial color="#94a3b8" metalness={0.7} />
-              </Cylinder>
-              <Cylinder args={[0.5, 0.5, 15]} position={[-15, 22, 45]} rotation={[0,0,-0.2]} castShadow>
-                <meshStandardMaterial color="#94a3b8" metalness={0.7} />
-              </Cylinder>
-              <Cylinder args={[0.5, 0.5, 20]} position={[-8, 20, 0]} castShadow>
-                <meshStandardMaterial color="#94a3b8" metalness={0.7} />
-              </Cylinder>
-            </group>
-            {/* East Stand */}
-            <group position={[45, 0, 0]}>
-              <Box args={[30, 2, 110]} rotation={[0, 0, Math.PI / 6]} position={[0, 8, 0]} castShadow receiveShadow>
-                 <meshStandardMaterial color="#dc2626" roughness={0.8} />
-              </Box>
-              <Box args={[10, 16, 110]} position={[14, 8, 0]} castShadow receiveShadow>
-                 <meshStandardMaterial color="#1e293b" roughness={0.7} />
-              </Box>
-              <Box args={[38, 1, 110]} position={[-2, 28, 0]} rotation={[0, 0, -Math.PI / 12]} castShadow receiveShadow>
-                 <meshStandardMaterial color="#f8fafc" roughness={0.3} metalness={0.2} />
-              </Box>
-              <Cylinder args={[0.5, 0.5, 15]} position={[15, 22, -45]} rotation={[0,0,0.2]} castShadow>
-                <meshStandardMaterial color="#94a3b8" metalness={0.7} />
-              </Cylinder>
-              <Cylinder args={[0.5, 0.5, 15]} position={[15, 22, 45]} rotation={[0,0,0.2]} castShadow>
-                <meshStandardMaterial color="#94a3b8" metalness={0.7} />
-              </Cylinder>
-              <Cylinder args={[0.5, 0.5, 20]} position={[8, 20, 0]} castShadow>
-                <meshStandardMaterial color="#94a3b8" metalness={0.7} />
-              </Cylinder>
-            </group>
-            {/* North Stand */}
-            <group position={[0, 0, -62]}>
-              <Box args={[68, 2, 25]} rotation={[Math.PI / 6, 0, 0]} position={[0, 6, 0]} castShadow receiveShadow>
-                 <meshStandardMaterial color="#dc2626" roughness={0.8} />
-              </Box>
-              <Box args={[68, 12, 10]} position={[0, 6, -10]} castShadow receiveShadow>
-                 <meshStandardMaterial color="#1e293b" roughness={0.7} />
-              </Box>
-            </group>
-            {/* South Stand */}
-            <group position={[0, 0, 62]}>
-              <Box args={[68, 2, 25]} rotation={[-Math.PI / 6, 0, 0]} position={[0, 6, 0]} castShadow receiveShadow>
-                 <meshStandardMaterial color="#dc2626" roughness={0.8} />
-              </Box>
-              <Box args={[68, 12, 10]} position={[0, 6, 10]} castShadow receiveShadow>
-                 <meshStandardMaterial color="#1e293b" roughness={0.7} />
-              </Box>
-            </group>
-            <Text position={[0, 45, 0]} fontSize={8} color="#ffffff" rotation={[-Math.PI/4, 0, 0]} castShadow>
-              BMO FIELD
-            </Text>
-          </group>
+                                    <div className="p-3 bg-slate-900/30 border border-slate-850 rounded-xl space-y-2">
+                                        <div className="flex justify-between text-xs">
+                                            <span className="text-cyan-450 font-medium">Retenção na Fan Zone</span>
+                                            <span className="text-cyan-405 font-bold">{mitigation}%</span>
+                                        </div>
+                                        <input
+                                            type="range" min="0" max="50" step="5"
+                                            value={mitigation}
+                                            onChange={(e) => setMitigation(Number(e.target.value))}
+                                            className="w-full accent-cyan-550 bg-slate-800 rounded-lg appearance-none h-1.5 cursor-pointer"
+                                        />
+                                        <p className="text-[10px] text-slate-500 leading-tight">Porcentagem retida temporariamente nas Fan Zones antes de ir para a estação.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
 
-          {/* Station */}
-          <group position={[SCENERY_BOUNDS.station.x, 0, SCENERY_BOUNDS.station.z]}>
-            <Box args={[SCENERY_BOUNDS.station.width, 35, SCENERY_BOUNDS.station.depth]} position={[0, 17.5, 0]} castShadow receiveShadow>
-              <meshStandardMaterial color="#334155" roughness={0.6} metalness={0.3} />
-            </Box>
-            <Box args={[SCENERY_BOUNDS.station.width - 10, 20, 1]} position={[0, 15, SCENERY_BOUNDS.station.depth/2 + 0.1]} castShadow receiveShadow>
-              <meshStandardMaterial color="#38bdf8" roughness={0.1} metalness={0.9} transparent opacity={0.6} />
-            </Box>
-            <Text position={[0, 42, 0]} fontSize={6} color="#e2e8f0" rotation={[-Math.PI/6, 0, 0]}>
-              EXHIBITION GO STATION
-            </Text>
-          </group>
+                        {activeTab === 'logistica' && (
+                            <div className="space-y-3 animate-fadeIn text-xs leading-relaxed">
+                                <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Planejamento Logístico</h3>
+                                
+                                <div className="p-3 bg-indigo-950/20 border border-indigo-900/30 rounded-xl space-y-1.5">
+                                    <h4 className="font-bold text-indigo-300 flex items-center gap-1.5">
+                                        <Train size={12} /> Modal Principal (Ferroviário)
+                                    </h4>
+                                    <p className="text-slate-450">
+                                        **Exhibition GO Station**: Eixo principal de escoamento. Conecta o estádio ao hub central de Toronto (Union Station). Frequência padrão de trens: a cada 15 min.
+                                    </p>
+                                </div>
 
-          {/* Bridge */}
-          <group position={[SCENERY_BOUNDS.bridge.x, 15, SCENERY_BOUNDS.bridge.z]}>
-            <Box args={[SCENERY_BOUNDS.bridge.width, 3, SCENERY_BOUNDS.bridge.depth]} castShadow receiveShadow>
-              <meshStandardMaterial color="#94a3b8" roughness={0.8} />
-            </Box>
-            <Box args={[1, 5, SCENERY_BOUNDS.bridge.depth]} position={[-SCENERY_BOUNDS.bridge.width/2 + 0.5, 4, 0]} castShadow receiveShadow>
-               <meshStandardMaterial color="#64748b" />
-            </Box>
-            <Box args={[1, 5, SCENERY_BOUNDS.bridge.depth]} position={[SCENERY_BOUNDS.bridge.width/2 - 0.5, 4, 0]} castShadow receiveShadow>
-               <meshStandardMaterial color="#64748b" />
-            </Box>
-          </group>
+                                <div className="p-3 bg-slate-900/60 border border-slate-800 rounded-xl space-y-1.5">
+                                    <h4 className="font-bold text-slate-200">Controles de Tráfego de Pedestres</h4>
+                                    <ul className="list-disc list-inside space-y-1 text-slate-400">
+                                        <li>**Ponte de Ligação GO**: Passarela elevada exclusiva de pedestres. Gargalo crítico de evacuação.</li>
+                                        <li>**Fan Zones Leste & Oeste**: Áreas com entretenimento e telões projetadas para espalhar o pico de saída dos torcedores.</li>
+                                        <li>**Catracas de Entrada**: 8 catracas integradas com triagem eletrônica e segurança nível FIFA.</li>
+                                    </ul>
+                                </div>
 
-          {/* Fan Zones */}
-          {SCENERY_BOUNDS.fanZones.map((fz, idx) => (
-            <group key={`fz-${idx}`} position={[fz.x, 0.1, fz.z]}>
-              <Plane args={[fz.width, fz.depth]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-                <meshStandardMaterial color="#3b82f6" opacity={0.2} transparent />
-              </Plane>
-              <Text position={[0, 15, 0]} fontSize={5} color="#60a5fa" rotation={[-Math.PI/4, 0, 0]}>
-                FAN ZONE
-              </Text>
-            </group>
-          ))}
+                                <div className="p-3 bg-slate-900/60 border border-slate-800 rounded-xl space-y-1">
+                                    <h4 className="font-bold text-slate-200">Restrição de Vias Terrestres</h4>
+                                    <p className="text-slate-400">
+                                        Fechamento temporário de tráfego de veículos nas vias do entorno imediato (Norte e Sul) para priorizar a mobilidade ativa e a segurança física.
+                                    </p>
+                                </div>
+                            </div>
+                        )}
 
-          {/* Turnstiles */}
-          {SCENERY_BOUNDS.turnstiles.map((ts, idx) => (
-            <group key={`ts-${idx}`} position={[ts.x, 0, ts.z]}>
-              <Box args={[ts.width + 10, 0.5, ts.depth + 20]} position={[0, 0.25, 0]} receiveShadow>
-                <meshStandardMaterial color="#475569" />
-              </Box>
-              <Text position={[0, 8, 0]} fontSize={4} color="#fbbf24" rotation={[-Math.PI/4, 0, 0]}>
-                SECURITY & CHECK-IN
-              </Text>
-            </group>
-          ))}
-        </group>
-      );
-    };
+                        {activeTab === 'riscos' && (
+                            <div className="space-y-3 animate-fadeIn">
+                                <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Riscos Logísticos e Soluções</h3>
+                                
+                                <div className="space-y-2.5 text-xs">
+                                    {/* Risco 1: Trem / Estação */}
+                                    <div className="p-2.5 bg-slate-900/60 border border-slate-800 rounded-xl space-y-2">
+                                        <div className="flex justify-between items-start">
+                                            <h4 className="font-bold text-amber-500">1. Gargalo na Estação GO</h4>
+                                            <span className="bg-red-950 text-red-400 font-bold px-1.5 py-0.5 rounded text-[8px] uppercase">
+                                                Alto Risco
+                                            </span>
+                                        </div>
+                                        <p className="text-slate-400 text-[10px] leading-tight">Excesso de torcedores na plataforma ferroviária esperando o embarque.</p>
+                                        <button 
+                                            onClick={() => setTrainFrequencySolution(!trainFrequencySolution)}
+                                            className={`w-full py-1.5 px-3 rounded-lg font-bold transition-all duration-300 text-[11px] ${
+                                                trainFrequencySolution 
+                                                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-950/45'
+                                                    : 'bg-slate-850 hover:bg-slate-800 text-slate-300 border border-slate-750'
+                                            }`}
+                                        >
+                                            {trainFrequencySolution ? '✓ Trem Rápido Ativado' : 'Aplicar: Duplicar Frequência de Trens'}
+                                        </button>
+                                    </div>
 
-    // ==========================================
-    // 3. AGENT SIMULATION COMPONENT
-    // ==========================================
-    const NUM_AGENTS = 5000;
-    const AGENT_SPEED = 0.8;
-    const tempObject = new THREE.Object3D();
-    const colorGreen = new THREE.Color('#10b981');
-    const colorRed = new THREE.Color('#ef4444');
-    const colorYellow = new THREE.Color('#fbbf24');
-    const colorBlue = new THREE.Color('#3b82f6');
+                                    {/* Risco 2: Segurança Catracas */}
+                                    <div className="p-2.5 bg-slate-900/60 border border-slate-800 rounded-xl space-y-2">
+                                        <div className="flex justify-between items-start">
+                                            <h4 className="font-bold text-amber-500">2. Retenção nas Catracas</h4>
+                                            <span className="bg-amber-950 text-amber-400 font-bold px-1.5 py-0.5 rounded text-[8px] uppercase">
+                                                Médio Risco
+                                            </span>
+                                        </div>
+                                        <p className="text-slate-400 text-[10px] leading-tight">Filas extensas no portão de entrada por lentidão na leitura de ingressos.</p>
+                                        <button 
+                                            onClick={() => setExtraTurnstilesSolution(!extraTurnstilesSolution)}
+                                            className={`w-full py-1.5 px-3 rounded-lg font-bold transition-all duration-300 text-[11px] ${
+                                                extraTurnstilesSolution 
+                                                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-950/45'
+                                                    : 'bg-slate-850 hover:bg-slate-800 text-slate-300 border border-slate-750'
+                                            }`}
+                                        >
+                                            {extraTurnstilesSolution ? '✓ Triagem Rápida Ativada' : 'Aplicar: Ativar Triagem Digital Extra'}
+                                        </button>
+                                    </div>
 
-    function AgentSimulation({ arrivalRate, departureRate, mitigation }) {
-      const meshRef = useRef();
+                                    {/* Risco 3: Ponte GO */}
+                                    <div className="p-2.5 bg-slate-900/60 border border-slate-800 rounded-xl space-y-2">
+                                        <div className="flex justify-between items-start">
+                                            <h4 className="font-bold text-amber-500">3. Congestionamento na Ponte</h4>
+                                            <span className="bg-red-950 text-red-400 font-bold px-1.5 py-0.5 rounded text-[8px] uppercase">
+                                                Alto Risco
+                                            </span>
+                                        </div>
+                                        <p className="text-slate-400 text-[10px] leading-tight">Fluxos conflitantes de torcedores na ponte estreita da passarela.</p>
+                                        <button 
+                                            onClick={() => setOneWayBridgeSolution(!oneWayBridgeSolution)}
+                                            className={`w-full py-1.5 px-3 rounded-lg font-bold transition-all duration-300 text-[11px] ${
+                                                oneWayBridgeSolution 
+                                                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-950/45'
+                                                    : 'bg-slate-850 hover:bg-slate-800 text-slate-300 border border-slate-750'
+                                            }`}
+                                        >
+                                            {oneWayBridgeSolution ? '✓ Sentido Único Ativado' : 'Aplicar: Definir Sentido Único na Ponte'}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
 
-      const agents = useMemo(() => {
-        return new Array(NUM_AGENTS).fill().map((_, i) => ({
-          id: i,
-          position: new THREE.Vector3(0, -100, 0),
-          target: new THREE.Vector3(),
-          state: 'idle', 
-          color: new THREE.Color('#000000'),
-          waitTime: 0,
-          isMitigated: false
-        }));
-      }, []);
+                        {activeTab === 'tecnologias' && (
+                            <div className="space-y-3 animate-fadeIn text-xs">
+                                <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Tecnologias do Estádio</h3>
+                                <p className="text-slate-450 leading-relaxed mb-1">
+                                    O Toronto Stadium utiliza uma infraestrutura tecnológica integrada para gerenciar o fluxo do público em tempo real:
+                                </p>
+                                
+                                <div className="space-y-2.5">
+                                    <div className="p-3 bg-slate-900/60 border border-slate-800 rounded-xl">
+                                        <p className="font-bold text-violet-400">RFID (Identificação por Radiofrequência)</p>
+                                        <p className="text-[11px] text-slate-400 mt-1 leading-snug">
+                                            Presente nas credenciais e ingressos eletrônicos para garantir extrema agilidade na entrada (leitura sem contato por aproximação) e mitigar o acúmulo de filas nas catracas.
+                                        </p>
+                                    </div>
+                                    <div className="p-3 bg-slate-900/60 border border-slate-800 rounded-xl">
+                                        <p className="font-bold text-violet-400">IoT (Internet das Coisas - Sensores)</p>
+                                        <p className="text-[11px] text-slate-400 mt-1 leading-snug">
+                                            Sensores de presença distribuídos nos banheiros e áreas de circulação comum para monitorar a densidade do fluxo. Caso uma área atinja capacidade crítica, o sistema envia alertas automáticos para a equipe operacional realizar o redirecionamento.
+                                        </p>
+                                    </div>
+                                    <div className="p-3 bg-slate-900/60 border border-slate-800 rounded-xl">
+                                        <p className="font-bold text-violet-400">IA (Inteligência Artificial)</p>
+                                        <p className="text-[11px] text-slate-400 mt-1 leading-snug">
+                                            Algoritmos de análise preditiva que calculam o tempo médio de espera em filas em tempo real, sugerindo rotas alternativas mais livres diretamente no aplicativo oficial do torcedor.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
 
-      useEffect(() => {
-        if (!meshRef.current) return;
-        agents.forEach((agent, i) => {
-          meshRef.current.setColorAt(i, agent.color);
-        });
-        meshRef.current.instanceColor.needsUpdate = true;
-      }, [agents]);
-
-      useFrame((state, delta) => {
-        if (!meshRef.current) return;
-        let needsColorUpdate = false;
-
-        const spawnsPerSecEntry = (arrivalRate / 100) * 20; 
-        const spawnsThisFrameEntry = spawnsPerSecEntry * delta;
-        const countEntry = Math.floor(spawnsThisFrameEntry) + (Math.random() < (spawnsThisFrameEntry % 1) ? 1 : 0);
-
-        const spawnsPerSecExit = (departureRate / 100) * 20; 
-        const spawnsThisFrameExit = spawnsPerSecExit * delta;
-        const countExit = Math.floor(spawnsThisFrameExit) + (Math.random() < (spawnsThisFrameExit % 1) ? 1 : 0);
-
-        const trySpawn = (type) => {
-           const idleAgent = agents.find(a => a.state === 'idle');
-           if (!idleAgent) return; 
-           
-           if (type === 'entry') {
-              idleAgent.position.set((Math.random() - 0.5) * 200, 0.5, SCENERY_BOUNDS.streets.south.z + (Math.random() * 20));
-              idleAgent.target.set(SCENERY_BOUNDS.turnstiles[0].x + (Math.random() - 0.5) * SCENERY_BOUNDS.turnstiles[0].width, 0.5, SCENERY_BOUNDS.turnstiles[0].z + (Math.random() - 0.5) * SCENERY_BOUNDS.turnstiles[0].depth);
-              idleAgent.state = 'moving_to_turnstile';
-              idleAgent.color.copy(colorGreen);
-           } else if (type === 'exit') {
-              idleAgent.position.set((Math.random() - 0.5) * SCENERY_BOUNDS.stadium.width, 0.5, (Math.random() - 0.5) * SCENERY_BOUNDS.stadium.depth);
-              idleAgent.isMitigated = (Math.random() * 100) < mitigation;
-              if (idleAgent.isMitigated) {
-                 idleAgent.state = 'moving_to_fanzone';
-                 const fz = SCENERY_BOUNDS.fanZones[Math.floor(Math.random() * SCENERY_BOUNDS.fanZones.length)];
-                 idleAgent.target.set(fz.x + (Math.random() - 0.5) * fz.width, 0.5, fz.z + (Math.random() - 0.5) * fz.depth);
-                 idleAgent.color.copy(colorBlue);
-              } else {
-                 idleAgent.state = 'moving_to_station';
-                 idleAgent.target.set(SCENERY_BOUNDS.bridge.x + (Math.random() - 0.5) * SCENERY_BOUNDS.bridge.width, 0.5, SCENERY_BOUNDS.bridge.z + (Math.random() - 0.5) * SCENERY_BOUNDS.bridge.depth);
-                 idleAgent.color.copy(colorRed);
-              }
-           }
-           meshRef.current.setColorAt(idleAgent.id, idleAgent.color);
-           needsColorUpdate = true;
+                    {/* Footer */}
+                    <div className="p-2.5 bg-slate-900/90 border-t border-slate-850 text-[9px] text-slate-500 text-center flex-shrink-0 flex justify-between px-4">
+                        <span>Toronto Stadium Sim 3D</span>
+                        <span>Copa do Mundo FIFA 2026</span>
+                    </div>
+                </div>
+            );
         };
 
-        for(let j = 0; j < countEntry; j++) trySpawn('entry');
-        for(let j = 0; j < countExit; j++) trySpawn('exit');
 
-        agents.forEach((agent, i) => {
-          if (agent.state === 'idle') {
-            tempObject.position.set(0, -100, 0); 
-            tempObject.updateMatrix();
-            meshRef.current.setMatrixAt(i, tempObject.matrix);
-            return;
-          }
-          
-          const dir = new THREE.Vector3().subVectors(agent.target, agent.position);
-          const dist = dir.length();
-          
-          if (dist < 2) {
-             if (agent.state === 'moving_to_turnstile') {
-                agent.state = 'moving_to_stadium';
-                agent.target.set((Math.random() - 0.5) * SCENERY_BOUNDS.stadium.width, 0.5, (Math.random() - 0.5) * SCENERY_BOUNDS.stadium.depth);
-             } else if (agent.state === 'moving_to_stadium') {
-                agent.state = 'idle'; 
-             } else if (agent.state === 'moving_to_fanzone') {
-                agent.state = 'waiting_fanzone';
-                agent.waitTime = 3 + Math.random() * 5; 
-             } else if (agent.state === 'moving_to_station') {
-                agent.state = 'idle'; 
-             }
-          }
-          
-          if (agent.state === 'waiting_fanzone') {
-             agent.waitTime -= delta;
-             if (agent.waitTime <= 0) {
-                agent.state = 'moving_to_station';
-                agent.target.set(SCENERY_BOUNDS.bridge.x + (Math.random() - 0.5) * SCENERY_BOUNDS.bridge.width, 0.5, SCENERY_BOUNDS.bridge.z + (Math.random() - 0.5) * SCENERY_BOUNDS.bridge.depth);
-                agent.color.copy(colorRed);
-                meshRef.current.setColorAt(i, agent.color);
-                needsColorUpdate = true;
-             }
-          } 
-          else if (agent.state !== 'idle') {
-             dir.normalize();
-             let speedMultiplier = 1;
-             if (agent.state === 'moving_to_station' && agent.position.z < -50) {
-                speedMultiplier = 0.3 + (Math.random() * 0.2);
-                const heatFactor = Math.max(0, 1 - (dist / 60));
-                agent.color.lerpColors(colorRed, colorYellow, heatFactor * 0.05); 
-                meshRef.current.setColorAt(i, agent.color);
-                needsColorUpdate = true;
-             } else if (agent.state === 'moving_to_turnstile' && dist < 30) {
-                speedMultiplier = 0.5; 
-             }
-             agent.position.addScaledVector(dir, AGENT_SPEED * speedMultiplier);
-          }
 
-          tempObject.position.copy(agent.position);
-          tempObject.updateMatrix();
-          meshRef.current.setMatrixAt(i, tempObject.matrix);
-        });
+        // ==========================================
+        // 1.5. COMPONENTES VISUAIS ADICIONAIS (TREM, BANDEIRAS, SINALIZADORES)
+        // ==========================================
+        const GOTransitTrain = ({ simSharedRef }) => {
+            const trainRef = useRef();
+            const state = useRef('hidden'); // 'approaching', 'stopped', 'departing', 'hidden'
+            const stopTimer = useRef(0);
+            const hiddenTimer = useRef(0);
 
-        meshRef.current.instanceMatrix.needsUpdate = true;
-        if (needsColorUpdate) {
-          meshRef.current.instanceColor.needsUpdate = true;
+            useFrame((threeState, delta) => {
+                if (!trainRef.current) return;
+
+                const shared = simSharedRef.current;
+                const currentInterval = shared.trainFrequencySolution ? 6 : 13; // mais frequente se solução ativa
+
+                if (state.current === 'hidden') {
+                    hiddenTimer.current += delta;
+                    trainRef.current.position.x = -350;
+                    shared.trainPositionX = -350;
+                    shared.isTrainStopped = false;
+                    if (hiddenTimer.current >= currentInterval) {
+                        state.current = 'approaching';
+                        hiddenTimer.current = 0;
+                    }
+                } 
+                else if (state.current === 'approaching') {
+                    const currentX = trainRef.current.position.x;
+                    const targetX = 0;
+                    const dist = targetX - currentX;
+                    const speed = Math.max(15, dist * 1.5);
+                    trainRef.current.position.x += speed * delta * 8;
+                    shared.trainPositionX = trainRef.current.position.x;
+
+                    if (trainRef.current.position.x >= -1) {
+                        trainRef.current.position.x = 0;
+                        shared.trainPositionX = 0;
+                        state.current = 'stopped';
+                        stopTimer.current = 0;
+                        shared.isTrainStopped = true;
+                    }
+                } 
+                else if (state.current === 'stopped') {
+                    stopTimer.current += delta;
+                    shared.isTrainStopped = true;
+                    if (stopTimer.current >= 4.0) { // fica parado 4 segundos
+                        state.current = 'departing';
+                        shared.isTrainStopped = false;
+                        stopTimer.current = 0;
+                    }
+                } 
+                else if (state.current === 'departing') {
+                    const currentX = trainRef.current.position.x;
+                    const speed = Math.max(25, (currentX + 15) * 1.2);
+                    trainRef.current.position.x += speed * delta * 8;
+                    shared.trainPositionX = trainRef.current.position.x;
+
+                    if (trainRef.current.position.x > 350) {
+                        state.current = 'hidden';
+                        hiddenTimer.current = 0;
+                    }
+                }
+            });
+
+            return (
+                <group ref={trainRef} position={[-350, 3.5, -205]}>
+                    {/* Corpo do trem - GO Transit verde escuro metalizado */}
+                    <Box args={[65, 6, 4.5]} castShadow receiveShadow>
+                        <meshStandardMaterial color="#166534" metalness={0.7} roughness={0.2} />
+                    </Box>
+                    {/* Linha branca decorativa */}
+                    <Box args={[63, 1.2, 4.7]} position={[0, -1, 0]}>
+                        <meshStandardMaterial color="#ffffff" />
+                    </Box>
+                    {/* Vidro da cabine da frente */}
+                    <Box args={[2, 3, 4.6]} position={[31.6, 0.5, 0]}>
+                        <meshStandardMaterial color="#1e293b" metalness={0.9} roughness={0.05} />
+                    </Box>
+                    {/* Vidro da cabine traseira */}
+                    <Box args={[2, 3, 4.6]} position={[-31.6, 0.5, 0]}>
+                        <meshStandardMaterial color="#1e293b" metalness={0.9} roughness={0.05} />
+                    </Box>
+                    {/* Janelas laterais */}
+                    {[-24, -16, -8, 0, 8, 16, 24].map((offsetX, idx) => (
+                        <Box key={idx} args={[5, 1.8, 4.8]} position={[offsetX, 0.8, 0]}>
+                            <meshStandardMaterial color="#0284c7" transparent opacity={0.7} roughness={0.1} />
+                        </Box>
+                    ))}
+                </group>
+            );
+        };
+
+        const Flag = ({ position, texture }) => {
+            const flagMeshRef = useRef();
+
+            useFrame((state) => {
+                if (!flagMeshRef.current) return;
+                const time = state.clock.elapsedTime;
+                // Animação sutil de ondulação ao vento
+                flagMeshRef.current.rotation.y = Math.sin(time * 3.5 + position[2]) * 0.12;
+                flagMeshRef.current.rotation.z = Math.cos(time * 2.0 + position[2]) * 0.05;
+            });
+
+            return (
+                <group position={position}>
+                    {/* Mastro */}
+                    <Cylinder args={[0.15, 0.2, 22, 8]} position={[0, 11, 0]} castShadow>
+                        <meshStandardMaterial color="#e2e8f0" metalness={0.6} roughness={0.2} />
+                    </Cylinder>
+                    {/* Topo dourado */}
+                    <mesh position={[0, 22, 0]}>
+                        <sphereGeometry args={[0.35, 16, 16]} />
+                        <meshStandardMaterial color="#d97706" metalness={0.8} />
+                    </mesh>
+                    {/* Tecido */}
+                    <mesh ref={flagMeshRef} position={[2.6, 19.5, 0]} rotation={[0, 0, 0]} castShadow>
+                        <planeGeometry args={[5.2, 3.2]} />
+                        <meshStandardMaterial map={texture} side={THREE.DoubleSide} roughness={0.5} />
+                    </mesh>
+                </group>
+            );
+        };
+
+        const RiskBeacon = ({ position, isMitigated, label }) => {
+            const glowRef = useRef();
+
+            useFrame((state) => {
+                if (!glowRef.current) return;
+                const time = state.clock.elapsedTime;
+                const scale = 1.0 + Math.sin(time * 4.5) * 0.08;
+                glowRef.current.scale.set(scale, scale, 1);
+                glowRef.current.material.opacity = 0.25 + Math.sin(time * 4.5) * 0.08;
+            });
+
+            const colorHex = isMitigated ? '#10b981' : '#f59e0b';
+
+            return (
+                <group position={position}>
+                    {/* Círculo no chão */}
+                    <mesh ref={glowRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.2, 0]}>
+                        <ringGeometry args={[13, 14.5, 32]} />
+                        <meshBasicMaterial color={colorHex} transparent opacity={0.3} side={THREE.DoubleSide} />
+                    </mesh>
+                    {/* Cilindro transparente de barreira */}
+                    <mesh position={[0, 4, 0]}>
+                        <cylinderGeometry args={[13.5, 13.5, 8, 32, 1, true]} />
+                        <meshBasicMaterial color={colorHex} transparent opacity={0.05} side={THREE.DoubleSide} depthWrite={false} />
+                    </mesh>
+                    {/* Texto flutuante */}
+                    <Text position={[0, 11, 0]} fontSize={4.0} color={colorHex} rotation={[-Math.PI / 8, 0, 0]} font="https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyfMZhrib2Bg-4.ttf">
+                        {label}
+                    </Text>
+                </group>
+            );
+        };
+
+        // ==========================================
+        // 2. SCENERY COMPONENT (BMO FIELD EXPANDIDO)
+        // ==========================================
+        const SCENERY_BOUNDS = {
+            stadium: { x: 0, z: 0, width: 100, depth: 130 },
+            station: { x: 0, z: -180, width: 90, depth: 40 },
+            bridge: { x: 0, z: -120, width: 25, depth: 80 },
+            fanZones: [
+                { x: -90, z: 20, width: 50, depth: 60 },
+                { x: 90, z: 20, width: 50, depth: 60 }
+            ],
+            turnstiles: [
+                { x: 0, z: 100, width: 80, depth: 10 }
+            ],
+            streets: {
+                south: { x: 0, z: 170 },
+                east: { x: 150, z: 0 },
+                north: { x: 0, z: -140 }
+            }
+        };
+
+        const Scenery = ({ simSharedRef, trainFrequencySolution, extraTurnstilesSolution, oneWayBridgeSolution }) => {
+            const grassTexture = useMemo(() => {
+                const canvas = document.createElement('canvas');
+                canvas.width = 512;
+                canvas.height = 512;
+                const context = canvas.getContext('2d');
+                context.fillStyle = '#166534';
+                context.fillRect(0, 0, 512, 512);
+                context.fillStyle = '#15803d';
+                for (let i = 0; i < 4000; i++) context.fillRect(Math.random() * 512, Math.random() * 512, 2, 2);
+
+                context.fillStyle = 'rgba(255, 255, 255, 0.7)';
+                context.fillRect(20, 20, 472, 5);
+                context.fillRect(20, 487, 472, 5);
+                context.fillRect(20, 20, 5, 472);
+                context.fillRect(487, 20, 5, 472);
+                context.fillRect(20, 254, 472, 5);
+
+                context.beginPath();
+                context.arc(256, 256, 50, 0, 2 * Math.PI);
+                context.lineWidth = 5;
+                context.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+                context.stroke();
+
+                const tex = new THREE.CanvasTexture(canvas);
+                tex.anisotropy = 16;
+                return tex;
+            }, []);
+
+            const concreteTexture = useMemo(() => {
+                const canvas = document.createElement('canvas');
+                canvas.width = 256;
+                canvas.height = 256;
+                const context = canvas.getContext('2d');
+                context.fillStyle = '#475569';
+                context.fillRect(0, 0, 256, 256);
+                context.fillStyle = '#334155';
+                for (let i = 0; i < 5000; i++) context.fillRect(Math.random() * 256, Math.random() * 256, 1, 1);
+                const tex = new THREE.CanvasTexture(canvas);
+                tex.wrapS = THREE.RepeatWrapping;
+                tex.wrapT = THREE.RepeatWrapping;
+                tex.repeat.set(15, 15);
+                return tex;
+            }, []);
+
+            // Texturas das bandeiras geradas dinamicamente
+            const flagTextureGermany = useMemo(() => {
+                const canvas = document.createElement('canvas');
+                canvas.width = 128;
+                canvas.height = 80;
+                const ctx = canvas.getContext('2d');
+                // Alemanha: Preto, Vermelho, Amarelo (horizontal)
+                ctx.fillStyle = '#000000';
+                ctx.fillRect(0, 0, 128, 26.6);
+                ctx.fillStyle = '#dc2626';
+                ctx.fillRect(0, 26.6, 128, 26.6);
+                ctx.fillStyle = '#fbbf24';
+                ctx.fillRect(0, 53.2, 128, 26.8);
+                return new THREE.CanvasTexture(canvas);
+            }, []);
+
+            const flagTextureCoteDivoire = useMemo(() => {
+                const canvas = document.createElement('canvas');
+                canvas.width = 128;
+                canvas.height = 80;
+                const ctx = canvas.getContext('2d');
+                // Costa do Marfim: Laranja, Branco, Verde (vertical)
+                ctx.fillStyle = '#f97316';
+                ctx.fillRect(0, 0, 42.6, 80);
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(42.6, 0, 42.6, 80);
+                ctx.fillStyle = '#16a34a';
+                ctx.fillRect(85.2, 0, 42.8, 80);
+                return new THREE.CanvasTexture(canvas);
+            }, []);
+
+            return (
+                <group>
+                    {/* Ground */}
+                    <Plane args={[1000, 1000]} rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.5, 0]} receiveShadow>
+                        <meshStandardMaterial map={concreteTexture} roughness={0.9} metalness={0.1} />
+                    </Plane>
+
+                    {/* BMO Field */}
+                    <group position={[0, 0, 0]}>
+                        <Plane args={[68, 105]} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.1, 0]} receiveShadow>
+                            <meshStandardMaterial map={grassTexture} roughness={1} />
+                        </Plane>
+                        {/* West Stand */}
+                        <group position={[-45, 0, 0]}>
+                            <Box args={[30, 2, 110]} rotation={[0, 0, -Math.PI / 6]} position={[0, 8, 0]} castShadow receiveShadow>
+                                <meshStandardMaterial color="#dc2626" roughness={0.8} />
+                            </Box>
+                            <Box args={[10, 16, 110]} position={[-14, 8, 0]} castShadow receiveShadow>
+                                <meshStandardMaterial color="#1e293b" roughness={0.7} />
+                            </Box>
+                            <Box args={[38, 1, 110]} position={[2, 28, 0]} rotation={[0, 0, Math.PI / 12]} castShadow receiveShadow>
+                                <meshStandardMaterial color="#f8fafc" roughness={0.3} metalness={0.2} />
+                            </Box>
+                            <Cylinder args={[0.5, 0.5, 15]} position={[-15, 22, -45]} rotation={[0, 0, -0.2]} castShadow>
+                                <meshStandardMaterial color="#94a3b8" metalness={0.7} />
+                            </Cylinder>
+                            <Cylinder args={[0.5, 0.5, 15]} position={[-15, 22, 45]} rotation={[0, 0, -0.2]} castShadow>
+                                <meshStandardMaterial color="#94a3b8" metalness={0.7} />
+                            </Cylinder>
+                            <Cylinder args={[0.5, 0.5, 20]} position={[-8, 20, 0]} castShadow>
+                                <meshStandardMaterial color="#94a3b8" metalness={0.7} />
+                            </Cylinder>
+                        </group>
+                        {/* East Stand */}
+                        <group position={[45, 0, 0]}>
+                            <Box args={[30, 2, 110]} rotation={[0, 0, Math.PI / 6]} position={[0, 8, 0]} castShadow receiveShadow>
+                                <meshStandardMaterial color="#dc2626" roughness={0.8} />
+                            </Box>
+                            <Box args={[10, 16, 110]} position={[14, 8, 0]} castShadow receiveShadow>
+                                <meshStandardMaterial color="#1e293b" roughness={0.7} />
+                            </Box>
+                            <Box args={[38, 1, 110]} position={[-2, 28, 0]} rotation={[0, 0, -Math.PI / 12]} castShadow receiveShadow>
+                                <meshStandardMaterial color="#f8fafc" roughness={0.3} metalness={0.2} />
+                            </Box>
+                            <Cylinder args={[0.5, 0.5, 15]} position={[15, 22, -45]} rotation={[0, 0, 0.2]} castShadow>
+                                <meshStandardMaterial color="#94a3b8" metalness={0.7} />
+                            </Cylinder>
+                            <Cylinder args={[0.5, 0.5, 15]} position={[15, 22, 45]} rotation={[0, 0, 0.2]} castShadow>
+                                <meshStandardMaterial color="#94a3b8" metalness={0.7} />
+                            </Cylinder>
+                            <Cylinder args={[0.5, 0.5, 20]} position={[8, 20, 0]} castShadow>
+                                <meshStandardMaterial color="#94a3b8" metalness={0.7} />
+                            </Cylinder>
+                        </group>
+                        {/* North Stand */}
+                        <group position={[0, 0, -62]}>
+                            <Box args={[68, 2, 25]} rotation={[Math.PI / 6, 0, 0]} position={[0, 6, 0]} castShadow receiveShadow>
+                                <meshStandardMaterial color="#dc2626" roughness={0.8} />
+                            </Box>
+                            <Box args={[68, 12, 10]} position={[0, 6, -10]} castShadow receiveShadow>
+                                <meshStandardMaterial color="#1e293b" roughness={0.7} />
+                            </Box>
+                        </group>
+                        {/* South Stand */}
+                        <group position={[0, 0, 62]}>
+                            <Box args={[68, 2, 25]} rotation={[-Math.PI / 6, 0, 0]} position={[0, 6, 0]} castShadow receiveShadow>
+                                <meshStandardMaterial color="#dc2626" roughness={0.8} />
+                            </Box>
+                            <Box args={[68, 12, 10]} position={[0, 6, 10]} castShadow receiveShadow>
+                                <meshStandardMaterial color="#1e293b" roughness={0.7} />
+                            </Box>
+                        </group>
+                        <Text position={[0, 45, 0]} fontSize={8} color="#ffffff" rotation={[-Math.PI / 4, 0, 0]} castShadow>
+                            TORONTO STADIUM
+                        </Text>
+                    </group>
+
+                    {/* Bandeiras das Seleções em cima das arquibancadas */}
+                    <Flag position={[-45, 16, -30]} texture={flagTextureGermany} />
+                    <Flag position={[-45, 16, 30]} texture={flagTextureGermany} />
+                    <Flag position={[45, 16, -30]} texture={flagTextureCoteDivoire} />
+                    <Flag position={[45, 16, 30]} texture={flagTextureCoteDivoire} />
+
+                    {/* Trilhos do Trem GO */}
+                    <group position={[0, 0.05, -205]}>
+                        {/* Dormentes */}
+                        {Array.from({ length: 65 }).map((_, idx) => (
+                            <Box key={idx} args={[0.8, 0.2, 5]} position={[-320 + idx * 10, 0.1, 0]}>
+                                <meshStandardMaterial color="#3f2b18" roughness={0.9} />
+                            </Box>
+                        ))}
+                        {/* Trilhos de aço */}
+                        <Box args={[700, 0.25, 0.15]} position={[0, 0.25, -1.8]}>
+                            <meshStandardMaterial color="#94a3b8" metalness={0.85} roughness={0.15} />
+                        </Box>
+                        <Box args={[700, 0.25, 0.15]} position={[0, 0.25, 1.8]}>
+                            <meshStandardMaterial color="#94a3b8" metalness={0.85} roughness={0.15} />
+                        </Box>
+                    </group>
+
+                    {/* Trem GO Transit */}
+                    <GOTransitTrain simSharedRef={simSharedRef} />
+
+                    {/* Sinalizadores de Riscos no Espaço 3D */}
+                    <RiskBeacon position={[0, 0, 100]} isMitigated={extraTurnstilesSolution} label="Filas Catracas" />
+                    <RiskBeacon position={[0, 15, -120]} isMitigated={oneWayBridgeSolution} label="Gargalo Ponte GO" />
+                    <RiskBeacon position={[0, 0, -180]} isMitigated={trainFrequencySolution} label="Plataforma GO Station" />
+
+                    {/* Station */}
+                    <group position={[SCENERY_BOUNDS.station.x, 0, SCENERY_BOUNDS.station.z]}>
+                        <Box args={[SCENERY_BOUNDS.station.width, 35, SCENERY_BOUNDS.station.depth]} position={[0, 17.5, 0]} castShadow receiveShadow>
+                            <meshStandardMaterial color="#1e293b" roughness={0.6} metalness={0.3} />
+                        </Box>
+                        <Box args={[SCENERY_BOUNDS.station.width - 10, 20, 1]} position={[0, 15, SCENERY_BOUNDS.station.depth / 2 + 0.1]} castShadow receiveShadow>
+                            <meshStandardMaterial color="#0ea5e9" roughness={0.1} metalness={0.9} transparent opacity={0.5} />
+                        </Box>
+                        <Text position={[0, 42, 0]} fontSize={6} color="#e2e8f0" rotation={[-Math.PI / 6, 0, 0]}>
+                            EXHIBITION GO STATION
+                        </Text>
+                    </group>
+
+                    {/* Bridge */}
+                    <group position={[SCENERY_BOUNDS.bridge.x, 15, SCENERY_BOUNDS.bridge.z]}>
+                        <Box args={[SCENERY_BOUNDS.bridge.width, 3, SCENERY_BOUNDS.bridge.depth]} castShadow receiveShadow>
+                            <meshStandardMaterial color="#94a3b8" roughness={0.8} />
+                        </Box>
+                        <Box args={[1, 5, SCENERY_BOUNDS.bridge.depth]} position={[-SCENERY_BOUNDS.bridge.width / 2 + 0.5, 4, 0]} castShadow receiveShadow>
+                            <meshStandardMaterial color="#64748b" />
+                        </Box>
+                        <Box args={[1, 5, SCENERY_BOUNDS.bridge.depth]} position={[SCENERY_BOUNDS.bridge.width / 2 - 0.5, 4, 0]} castShadow receiveShadow>
+                            <meshStandardMaterial color="#64748b" />
+                        </Box>
+                    </group>
+
+                    {/* Fan Zones */}
+                    {SCENERY_BOUNDS.fanZones.map((fz, idx) => (
+                        <group key={`fz-${idx}`} position={[fz.x, 0.1, fz.z]}>
+                            <Plane args={[fz.width, fz.depth]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+                                <meshStandardMaterial color="#8b5cf6" opacity={0.2} transparent />
+                            </Plane>
+                            <Text position={[0, 15, 0]} fontSize={5} color="#a78bfa" rotation={[-Math.PI / 4, 0, 0]}>
+                                FAN ZONE
+                            </Text>
+                        </group>
+                    ))}
+
+                    {/* Turnstiles */}
+                    {SCENERY_BOUNDS.turnstiles.map((ts, idx) => (
+                        <group key={`ts-${idx}`} position={[ts.x, 0, ts.z]}>
+                            <Box args={[ts.width + 10, 0.5, ts.depth + 20]} position={[0, 0.25, 0]} receiveShadow>
+                                <meshStandardMaterial color="#475569" />
+                            </Box>
+                            <Text position={[0, 8, 0]} fontSize={4} color="#e2e8f0" rotation={[-Math.PI / 4, 0, 0]}>
+                                SECURITY & CHECK-IN
+                            </Text>
+                        </group>
+                    ))}
+                </group>
+            );
+        };
+
+        // ==========================================
+        // 3. AGENT SIMULATION COMPONENT
+        // ==========================================
+        // ==========================================
+        // 3. AGENT SIMULATION COMPONENT (INTEGRADO COM LOGÍSTICA & TIME)
+        // ==========================================
+        const NUM_AGENTS = 5000;
+        const AGENT_SPEED = 0.8;
+        const tempObject = new THREE.Object3D();
+        
+        // Cores temáticas das seleções e de status
+        const colorWhite = new THREE.Color('#f8fafc'); // Alemanha
+        const colorOrange = new THREE.Color('#f97316'); // Costa do Marfim
+        const colorRed = new THREE.Color('#ef4444'); // Alerta de congestionamento
+        const colorYellow = new THREE.Color('#eab308'); // Alerta de espera
+        const colorBlue = new THREE.Color('#8b5cf6'); // Cor da Copa / Fan Zone
+
+        function AgentSimulation({ arrivalRate, departureRate, mitigation, simSharedRef }) {
+            const meshRef = useRef();
+
+            const agents = useMemo(() => {
+                return new Array(NUM_AGENTS).fill().map((_, i) => ({
+                    id: i,
+                    position: new THREE.Vector3(0, -100, 0),
+                    target: new THREE.Vector3(),
+                    state: 'idle',
+                    team: Math.random() > 0.5 ? 'GER' : 'CIV',
+                    color: new THREE.Color('#000000'),
+                    waitTime: 0,
+                    isMitigated: false
+                }));
+            }, []);
+
+            useEffect(() => {
+                if (!meshRef.current) return;
+                agents.forEach((agent, i) => {
+                    meshRef.current.setColorAt(i, agent.color);
+                });
+                meshRef.current.instanceColor.needsUpdate = true;
+            }, [agents]);
+
+            useFrame((state, delta) => {
+                if (!meshRef.current) return;
+                let needsColorUpdate = false;
+
+                const shared = simSharedRef.current;
+
+                const spawnsPerSecEntry = (arrivalRate / 100) * 20;
+                const spawnsThisFrameEntry = spawnsPerSecEntry * delta;
+                const countEntry = Math.floor(spawnsThisFrameEntry) + (Math.random() < (spawnsThisFrameEntry % 1) ? 1 : 0);
+
+                const spawnsPerSecExit = (departureRate / 100) * 20;
+                const spawnsThisFrameExit = spawnsPerSecExit * delta;
+                const countExit = Math.floor(spawnsThisFrameExit) + (Math.random() < (spawnsThisFrameExit % 1) ? 1 : 0);
+
+                const trySpawn = (type) => {
+                    const idleAgent = agents.find(a => a.state === 'idle');
+                    if (!idleAgent) return;
+
+                    const isGermany = Math.random() > 0.5;
+                    idleAgent.team = isGermany ? 'GER' : 'CIV';
+                    const baseColor = isGermany ? colorWhite : colorOrange;
+
+                    if (type === 'entry') {
+                        idleAgent.position.set((Math.random() - 0.5) * 200, 0.5, SCENERY_BOUNDS.streets.south.z + (Math.random() * 20));
+                        idleAgent.target.set(SCENERY_BOUNDS.turnstiles[0].x + (Math.random() - 0.5) * SCENERY_BOUNDS.turnstiles[0].width, 0.5, SCENERY_BOUNDS.turnstiles[0].z + (Math.random() - 0.5) * SCENERY_BOUNDS.turnstiles[0].depth);
+                        idleAgent.state = 'moving_to_turnstile';
+                        idleAgent.color.copy(baseColor);
+                    } else if (type === 'exit') {
+                        idleAgent.position.set((Math.random() - 0.5) * SCENERY_BOUNDS.stadium.width, 0.5, (Math.random() - 0.5) * SCENERY_BOUNDS.stadium.depth);
+                        idleAgent.isMitigated = (Math.random() * 100) < mitigation;
+                        if (idleAgent.isMitigated) {
+                            idleAgent.state = 'moving_to_fanzone';
+                            const fz = SCENERY_BOUNDS.fanZones[Math.floor(Math.random() * SCENERY_BOUNDS.fanZones.length)];
+                            idleAgent.target.set(fz.x + (Math.random() - 0.5) * fz.width, 0.5, fz.z + (Math.random() - 0.5) * fz.depth);
+                            idleAgent.color.copy(baseColor);
+                        } else {
+                            idleAgent.state = 'moving_to_station';
+                            idleAgent.target.set(SCENERY_BOUNDS.bridge.x + (Math.random() - 0.5) * SCENERY_BOUNDS.bridge.width, 0.5, SCENERY_BOUNDS.bridge.z + (Math.random() - 0.5) * SCENERY_BOUNDS.bridge.depth);
+                            idleAgent.color.copy(baseColor);
+                        }
+                    }
+                    meshRef.current.setColorAt(idleAgent.id, idleAgent.color);
+                    needsColorUpdate = true;
+                };
+
+                for (let j = 0; j < countEntry; j++) trySpawn('entry');
+                for (let j = 0; j < countExit; j++) trySpawn('exit');
+
+                agents.forEach((agent, i) => {
+                    if (agent.state === 'idle') {
+                        tempObject.position.set(0, -100, 0);
+                        tempObject.updateMatrix();
+                        meshRef.current.setMatrixAt(i, tempObject.matrix);
+                        return;
+                    }
+
+                    const dir = new THREE.Vector3().subVectors(agent.target, agent.position);
+                    const dist = dir.length();
+                    const baseColor = agent.team === 'GER' ? colorWhite : colorOrange;
+
+                    if (dist < 2.5) {
+                        if (agent.state === 'moving_to_turnstile') {
+                            agent.state = 'waiting_at_turnstile';
+                            // Solução ativa: triagem super rápida (0.1s). Senão, lentidão (1.5 a 3.5s).
+                            agent.waitTime = shared.extraTurnstilesSolution ? 0.1 : (1.5 + Math.random() * 2.0);
+                        } else if (agent.state === 'moving_to_stadium') {
+                            agent.state = 'idle';
+                        } else if (agent.state === 'moving_to_fanzone') {
+                            agent.state = 'waiting_fanzone';
+                            agent.waitTime = 3 + Math.random() * 5;
+                        } else if (agent.state === 'moving_to_station') {
+                            // Ao cruzar a ponte, define o próximo ponto como a estação GO
+                            agent.state = 'crossing_bridge';
+                            agent.target.set((Math.random() - 0.5) * 35, 0.5, SCENERY_BOUNDS.station.z + (Math.random() - 0.5) * 8);
+                        } else if (agent.state === 'crossing_bridge') {
+                            agent.state = 'waiting_at_platform';
+                            agent.waitTime = 0;
+                        }
+                    }
+
+                    // Processamento de tempos de espera e estados estáticos
+                    if (agent.state === 'waiting_at_turnstile') {
+                        agent.waitTime -= delta;
+                        if (agent.waitTime > 0.5 && !shared.extraTurnstilesSolution) {
+                            // Alerta de catraca travada / congestionamento
+                            agent.color.copy(Math.floor(state.clock.elapsedTime * 6) % 2 === 0 ? colorRed : colorYellow);
+                            needsColorUpdate = true;
+                        } else {
+                            agent.color.copy(baseColor);
+                            needsColorUpdate = true;
+                        }
+
+                        if (agent.waitTime <= 0) {
+                            agent.state = 'moving_to_stadium';
+                            agent.target.set((Math.random() - 0.5) * SCENERY_BOUNDS.stadium.width, 0.5, (Math.random() - 0.5) * SCENERY_BOUNDS.stadium.depth);
+                            agent.color.copy(baseColor);
+                            needsColorUpdate = true;
+                        }
+                    }
+                    else if (agent.state === 'waiting_fanzone') {
+                        agent.waitTime -= delta;
+                        agent.color.copy(colorBlue); // Cor da Fan Zone para integridade visual
+                        needsColorUpdate = true;
+                        if (agent.waitTime <= 0) {
+                            agent.state = 'moving_to_station';
+                            agent.target.set(SCENERY_BOUNDS.bridge.x + (Math.random() - 0.5) * SCENERY_BOUNDS.bridge.width, 0.5, SCENERY_BOUNDS.bridge.z + (Math.random() - 0.5) * SCENERY_BOUNDS.bridge.depth);
+                            agent.color.copy(baseColor);
+                            needsColorUpdate = true;
+                        }
+                    }
+                    else if (agent.state === 'waiting_at_platform') {
+                        agent.waitTime += delta;
+                        // Se o trem parar na estação, torcedores embarcam e somem!
+                        if (shared.isTrainStopped) {
+                            agent.state = 'idle';
+                            agent.color.copy(new THREE.Color('#000000'));
+                            needsColorUpdate = true;
+                        } else if (agent.waitTime > 3.0 && !shared.trainFrequencySolution) {
+                            // Alerta vermelho piscante de plataforma cheia devido à falta de trens
+                            agent.color.copy(Math.floor(state.clock.elapsedTime * 7) % 2 === 0 ? colorRed : colorYellow);
+                            needsColorUpdate = true;
+                        } else {
+                            agent.color.copy(baseColor);
+                            needsColorUpdate = true;
+                        }
+                    }
+                    else if (agent.state !== 'idle') {
+                        dir.normalize();
+                        let speedMultiplier = 1.0;
+
+                        // Se estiver passando pela passarela / ponte GO
+                        if (agent.position.z < -50 && agent.position.z > -150) {
+                            if (shared.oneWayBridgeSolution) {
+                                // Solução ativa (fluxo único): velocidade máxima
+                                speedMultiplier = 1.0;
+                                agent.color.copy(baseColor);
+                            } else {
+                                // Risco ativo (engarrafamento): velocidade reduzida para 25% e pisca alerta
+                                speedMultiplier = 0.25;
+                                agent.color.copy(Math.floor(state.clock.elapsedTime * 4.5) % 2 === 0 ? colorRed : colorYellow);
+                            }
+                            needsColorUpdate = true;
+                        } else if (agent.state === 'moving_to_turnstile' && dist < 30) {
+                            // Aproximação de catraca
+                            speedMultiplier = 0.55;
+                        }
+                        
+                        agent.position.addScaledVector(dir, AGENT_SPEED * speedMultiplier);
+                    }
+
+                    tempObject.position.copy(agent.position);
+                    tempObject.updateMatrix();
+                    meshRef.current.setMatrixAt(i, tempObject.matrix);
+                });
+
+                meshRef.current.instanceMatrix.needsUpdate = true;
+                if (needsColorUpdate) {
+                    meshRef.current.instanceColor.needsUpdate = true;
+                }
+            });
+
+            return (
+                <instancedMesh ref={meshRef} args={[null, null, NUM_AGENTS]} castShadow receiveShadow>
+                    <cylinderGeometry args={[0.4, 0.4, 1.8, 8]} />
+                    <meshStandardMaterial />
+                </instancedMesh>
+            );
         }
-      });
 
-      return (
-        <instancedMesh ref={meshRef} args={[null, null, NUM_AGENTS]} castShadow receiveShadow>
-          <cylinderGeometry args={[0.4, 0.4, 1.8, 8]} />
-          <meshStandardMaterial />
-        </instancedMesh>
-      );
-    }
+        // ==========================================
+        // 4. MAIN APP COMPONENT
+        // ==========================================
+        // ==========================================
+        // 4. MAIN APP COMPONENT
+        // ==========================================
+        function App() {
+            const [arrivalRate, setArrivalRate] = useState(30);
+            const [departureRate, setDepartureRate] = useState(10);
+            const [fanZoneMitigation, setFanZoneMitigation] = useState(20);
+            
+            // Novos estados para abas e soluções
+            const [activeTab, setActiveTab] = useState('jogo');
+            const [trainFrequencySolution, setTrainFrequencySolution] = useState(false);
+            const [extraTurnstilesSolution, setExtraTurnstilesSolution] = useState(false);
+            const [oneWayBridgeSolution, setOneWayBridgeSolution] = useState(false);
 
-    // ==========================================
-    // 4. MAIN APP COMPONENT
-    // ==========================================
-    function App() {
-      const [arrivalRate, setArrivalRate] = useState(30); 
-      const [departureRate, setDepartureRate] = useState(10); 
-      const [fanZoneMitigation, setFanZoneMitigation] = useState(20); 
+            // Referência compartilhada rápida para o loop frame a frame do Three.js (sem render do React)
+            const simSharedRef = useRef({
+                trainPositionX: -350,
+                isTrainStopped: false,
+                trainFrequencySolution: false,
+                extraTurnstilesSolution: false,
+                oneWayBridgeSolution: false
+            });
 
-      return (
-        <div className="w-screen h-screen relative bg-slate-900 text-white overflow-hidden">
-          <Dashboard 
-            arrivalRate={arrivalRate} setArrivalRate={setArrivalRate}
-            departureRate={departureRate} setDepartureRate={setDepartureRate}
-            mitigation={fanZoneMitigation} setMitigation={setFanZoneMitigation}
-          />
-          <Canvas shadows camera={{ position: [0, 150, 200], fov: 45 }}>
-            <color attach="background" args={['#0f172a']} />
-            <ambientLight intensity={0.4} />
-            <directionalLight 
-              position={[150, 250, 100]} intensity={1.2} castShadow 
-              shadow-mapSize-width={2048} shadow-mapSize-height={2048}
-              shadow-camera-far={500} shadow-camera-left={-200}
-              shadow-camera-right={200} shadow-camera-top={200}
-              shadow-camera-bottom={-200} shadow-bias={-0.0001}
-            />
-            <Sky sunPosition={[150, 20, 100]} turbidity={0.3} rayleigh={0.8} />
-            <Environment preset="sunset" />
-            <BakeShadows />
-            <Scenery />
-            <AgentSimulation arrivalRate={arrivalRate} departureRate={departureRate} mitigation={fanZoneMitigation} />
-            <OrbitControls enablePan={true} enableZoom={true} enableRotate={true} maxPolarAngle={Math.PI / 2 - 0.05} />
-          </Canvas>
-        </div>
-      );
-    }
+            // Sincroniza estados do React com a referência mutável
+            useEffect(() => {
+                simSharedRef.current.trainFrequencySolution = trainFrequencySolution;
+            }, [trainFrequencySolution]);
 
-    const root = createRoot(document.getElementById('root'));
-    root.render(<App />);
-  </script>
+            useEffect(() => {
+                simSharedRef.current.extraTurnstilesSolution = extraTurnstilesSolution;
+            }, [extraTurnstilesSolution]);
+
+            useEffect(() => {
+                simSharedRef.current.oneWayBridgeSolution = oneWayBridgeSolution;
+            }, [oneWayBridgeSolution]);
+
+            return (
+                <div className="w-screen h-screen relative bg-slate-900 text-white overflow-hidden">
+                    <Dashboard
+                        activeTab={activeTab}
+                        setActiveTab={setActiveTab}
+                        arrivalRate={arrivalRate}
+                        setArrivalRate={setArrivalRate}
+                        departureRate={departureRate}
+                        setDepartureRate={setDepartureRate}
+                        mitigation={fanZoneMitigation}
+                        setMitigation={setFanZoneMitigation}
+                        trainFrequencySolution={trainFrequencySolution}
+                        setTrainFrequencySolution={setTrainFrequencySolution}
+                        extraTurnstilesSolution={extraTurnstilesSolution}
+                        setExtraTurnstilesSolution={setExtraTurnstilesSolution}
+                        oneWayBridgeSolution={oneWayBridgeSolution}
+                        setOneWayBridgeSolution={setOneWayBridgeSolution}
+                    />
+                    <Canvas shadows camera={{ position: [0, 150, 200], fov: 45 }}>
+                        <color attach="background" args={['#0c0f17']} />
+                        <ambientLight intensity={0.4} />
+                        <directionalLight
+                            position={[150, 250, 100]} intensity={1.2} castShadow
+                            shadow-mapSize-width={2048} shadow-mapSize-height={2048}
+                            shadow-camera-far={500} shadow-camera-left={-200}
+                            shadow-camera-right={200} shadow-camera-top={200}
+                            shadow-camera-bottom={-200} shadow-bias={-0.0001}
+                        />
+                        <Sky sunPosition={[150, 20, 100]} turbidity={0.3} rayleigh={0.8} />
+                        <Environment preset="sunset" />
+                        <BakeShadows />
+                        <Scenery 
+                            simSharedRef={simSharedRef}
+                            trainFrequencySolution={trainFrequencySolution}
+                            extraTurnstilesSolution={extraTurnstilesSolution}
+                            oneWayBridgeSolution={oneWayBridgeSolution}
+                        />
+                        <AgentSimulation 
+                            arrivalRate={arrivalRate} 
+                            departureRate={departureRate} 
+                            mitigation={fanZoneMitigation} 
+                            simSharedRef={simSharedRef}
+                        />
+                        <OrbitControls enablePan={true} enableZoom={true} enableRotate={true} maxPolarAngle={Math.PI / 2 - 0.05} />
+                    </Canvas>
+                </div>
+            );
+        }
+
+        const root = createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
 </body>
+
 </html>
